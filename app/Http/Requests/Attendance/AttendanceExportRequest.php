@@ -1,0 +1,31 @@
+<?php
+
+namespace App\Http\Requests\Attendance;
+
+use App\Services\Attendance\AttendanceStatus;
+use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class AttendanceExportRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return $this->user('api') !== null;
+    }
+
+    /**
+     * @return array<string, ValidationRule|array<mixed>|string>
+     */
+    public function rules(): array
+    {
+        return [
+            'employee_id' => ['nullable', 'integer', 'exists:employees,id'],
+            'department_id' => ['nullable', 'integer', 'exists:departments,id'],
+            'status' => ['nullable', 'string', Rule::in(AttendanceStatus::all())],
+            'from_date' => ['nullable', 'date'],
+            'to_date' => ['nullable', 'date', 'after_or_equal:from_date'],
+            'month' => ['nullable', 'date_format:Y-m'],
+        ];
+    }
+}

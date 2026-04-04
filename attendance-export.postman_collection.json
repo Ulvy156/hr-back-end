@@ -1,0 +1,291 @@
+{
+  "info": {
+    "_postman_id": "f7f40535-52f5-4fd1-9d0d-attendance-export",
+    "name": "HR Back End - Attendance Export",
+    "description": "Postman collection for attendance export endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api"
+    },
+    {
+      "key": "email",
+      "value": "admin@example.com"
+    },
+    {
+      "key": "password",
+      "value": "password"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "employee_id",
+      "value": "1"
+    },
+    {
+      "key": "department_id",
+      "value": "1"
+    },
+    {
+      "key": "month",
+      "value": "2026-04"
+    },
+    {
+      "key": "from_date",
+      "value": "2026-04-01"
+    },
+    {
+      "key": "to_date",
+      "value": "2026-04-30"
+    },
+    {
+      "key": "status",
+      "value": "present"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data.access_token) {",
+                  "    pm.collectionVariables.set('access_token', data.access_token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Attendance Export",
+      "item": [
+        {
+          "name": "Export PDF By Month",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/pdf"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/export/pdf?month={{month}}&department_id={{department_id}}&employee_id={{employee_id}}&status={{status}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "export",
+                "pdf"
+              ],
+              "query": [
+                {
+                  "key": "month",
+                  "value": "{{month}}"
+                },
+                {
+                  "key": "department_id",
+                  "value": "{{department_id}}"
+                },
+                {
+                  "key": "employee_id",
+                  "value": "{{employee_id}}"
+                },
+                {
+                  "key": "status",
+                  "value": "{{status}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Export PDF By Date Range",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/pdf"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/export/pdf?from_date={{from_date}}&to_date={{to_date}}&department_id={{department_id}}&employee_id={{employee_id}}&status={{status}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "export",
+                "pdf"
+              ],
+              "query": [
+                {
+                  "key": "from_date",
+                  "value": "{{from_date}}"
+                },
+                {
+                  "key": "to_date",
+                  "value": "{{to_date}}"
+                },
+                {
+                  "key": "department_id",
+                  "value": "{{department_id}}"
+                },
+                {
+                  "key": "employee_id",
+                  "value": "{{employee_id}}"
+                },
+                {
+                  "key": "status",
+                  "value": "{{status}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Export Excel By Month",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/export/excel?month={{month}}&department_id={{department_id}}&employee_id={{employee_id}}&status={{status}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "export",
+                "excel"
+              ],
+              "query": [
+                {
+                  "key": "month",
+                  "value": "{{month}}"
+                },
+                {
+                  "key": "department_id",
+                  "value": "{{department_id}}"
+                },
+                {
+                  "key": "employee_id",
+                  "value": "{{employee_id}}"
+                },
+                {
+                  "key": "status",
+                  "value": "{{status}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Export Excel By Date Range",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/export/excel?from_date={{from_date}}&to_date={{to_date}}&department_id={{department_id}}&employee_id={{employee_id}}&status={{status}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "export",
+                "excel"
+              ],
+              "query": [
+                {
+                  "key": "from_date",
+                  "value": "{{from_date}}"
+                },
+                {
+                  "key": "to_date",
+                  "value": "{{to_date}}"
+                },
+                {
+                  "key": "department_id",
+                  "value": "{{department_id}}"
+                },
+                {
+                  "key": "employee_id",
+                  "value": "{{employee_id}}"
+                },
+                {
+                  "key": "status",
+                  "value": "{{status}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

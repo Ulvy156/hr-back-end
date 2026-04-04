@@ -1,0 +1,809 @@
+{
+  "info": {
+    "_postman_id": "e4d5fbc8-1a18-4f6f-b5df-hr-back-end-attendance",
+    "name": "HR Back End - Attendance Feature",
+    "description": "Postman collection for auth, attendance, and dashboard flows.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api"
+    },
+    {
+      "key": "email",
+      "value": "admin@example.com"
+    },
+    {
+      "key": "password",
+      "value": "password"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "employee_id",
+      "value": "1"
+    },
+    {
+      "key": "department_id",
+      "value": "1"
+    },
+    {
+      "key": "attendance_id",
+      "value": "1"
+    },
+    {
+      "key": "correction_request_id",
+      "value": "1"
+    },
+    {
+      "key": "actor_id",
+      "value": "1"
+    },
+    {
+      "key": "month",
+      "value": "2026-04"
+    },
+    {
+      "key": "scan_token",
+      "value": ""
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data.access_token) {",
+                  "    pm.collectionVariables.set('access_token', data.access_token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Attendance Employee",
+      "item": [
+        {
+          "name": "Check In",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scan_token\": \"{{scan_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/attendance/check-in",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "check-in"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Check Out",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scan_token\": \"{{scan_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/attendance/check-out",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "check-out"
+              ]
+            }
+          }
+        },
+        {
+          "name": "My Today Attendance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/me/today",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "me",
+                "today"
+              ]
+            }
+          }
+        },
+        {
+          "name": "My Attendance History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/me/history?per_page=15",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "me",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "per_page",
+                  "value": "15"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "My Attendance Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/me/summary",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "me",
+                "summary"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Submit Correction Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attendance_id\": {{attendance_id}},\n  \"requested_check_in_time\": \"2026-04-03T08:00:00+07:00\",\n  \"requested_check_out_time\": \"2026-04-03T17:00:00+07:00\",\n  \"reason\": \"Scanner was delayed during entry.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/attendance/me/correction-request",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "me",
+                "correction-request"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Attendance HR",
+      "item": [
+        {
+          "name": "Attendance List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance?employee_id={{employee_id}}&department_id={{department_id}}&status=present&from_date=2026-04-01&to_date=2026-04-30&per_page=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance"
+              ],
+              "query": [
+                {
+                  "key": "employee_id",
+                  "value": "{{employee_id}}"
+                },
+                {
+                  "key": "department_id",
+                  "value": "{{department_id}}"
+                },
+                {
+                  "key": "status",
+                  "value": "present"
+                },
+                {
+                  "key": "from_date",
+                  "value": "2026-04-01"
+                },
+                {
+                  "key": "to_date",
+                  "value": "2026-04-30"
+                },
+                {
+                  "key": "per_page",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Attendance Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/{{attendance_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "{{attendance_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Manual Attendance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee_id\": {{employee_id}},\n  \"attendance_date\": \"2026-04-03\",\n  \"check_in_time\": \"2026-04-03T08:15:00+07:00\",\n  \"check_out_time\": \"2026-04-03T17:00:00+07:00\",\n  \"notes\": \"Created by HR for late kiosk sync.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/attendance/manual",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "manual"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Correct Attendance",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"check_in_time\": \"2026-04-03T08:00:00+07:00\",\n  \"check_out_time\": \"2026-04-03T17:00:00+07:00\",\n  \"correction_reason\": \"Corrected based on approved request.\",\n  \"notes\": \"HR corrected the original record.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/attendance/{{attendance_id}}/correct",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "{{attendance_id}}",
+                "correct"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Today Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/summary/today",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "summary",
+                "today"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Monthly Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/summary/monthly?month={{month}}&department_id={{department_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "summary",
+                "monthly"
+              ],
+              "query": [
+                {
+                  "key": "month",
+                  "value": "{{month}}"
+                },
+                {
+                  "key": "department_id",
+                  "value": "{{department_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Correction Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/correction-requests?employee_id={{employee_id}}&status=pending&from_date=2026-04-01&to_date=2026-04-30&per_page=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "correction-requests"
+              ],
+              "query": [
+                {
+                  "key": "employee_id",
+                  "value": "{{employee_id}}"
+                },
+                {
+                  "key": "status",
+                  "value": "pending"
+                },
+                {
+                  "key": "from_date",
+                  "value": "2026-04-01"
+                },
+                {
+                  "key": "to_date",
+                  "value": "2026-04-30"
+                },
+                {
+                  "key": "per_page",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Review Correction Request",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"approved\",\n  \"review_note\": \"Approved after HR review.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/attendance/correction-requests/{{correction_request_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "correction-requests",
+                "{{correction_request_id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Attendance Admin",
+      "item": [
+        {
+          "name": "Read Attendance List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance?from_date=2026-04-01&to_date=2026-04-30&per_page=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance"
+              ],
+              "query": [
+                {
+                  "key": "from_date",
+                  "value": "2026-04-01"
+                },
+                {
+                  "key": "to_date",
+                  "value": "2026-04-30"
+                },
+                {
+                  "key": "per_page",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Read Attendance Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/{{attendance_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "{{attendance_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Read Today Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/summary/today",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "summary",
+                "today"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Read Monthly Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/summary/monthly?month={{month}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "summary",
+                "monthly"
+              ],
+              "query": [
+                {
+                  "key": "month",
+                  "value": "{{month}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/audit/logs?employee_id={{employee_id}}&actor_id={{actor_id}}&from_date=2026-04-01&to_date=2026-04-30&per_page=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "audit",
+                "logs"
+              ],
+              "query": [
+                {
+                  "key": "employee_id",
+                  "value": "{{employee_id}}"
+                },
+                {
+                  "key": "actor_id",
+                  "value": "{{actor_id}}"
+                },
+                {
+                  "key": "from_date",
+                  "value": "2026-04-01"
+                },
+                {
+                  "key": "to_date",
+                  "value": "2026-04-30"
+                },
+                {
+                  "key": "per_page",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Get Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/dashboard",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dashboard"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
