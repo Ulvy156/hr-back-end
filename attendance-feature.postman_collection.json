@@ -23,8 +23,24 @@
       "value": ""
     },
     {
+      "key": "user_id",
+      "value": "1"
+    },
+    {
       "key": "employee_id",
       "value": "1"
+    },
+    {
+      "key": "secondary_employee_id",
+      "value": "2"
+    },
+    {
+      "key": "role_id",
+      "value": "1"
+    },
+    {
+      "key": "secondary_role_id",
+      "value": "2"
     },
     {
       "key": "department_id",
@@ -45,10 +61,6 @@
     {
       "key": "month",
       "value": "2026-04"
-    },
-    {
-      "key": "scan_token",
-      "value": ""
     }
   ],
   "auth": {
@@ -135,6 +147,29 @@
           }
         },
         {
+          "name": "Profile",
+          "request": {
+            "description": "Returns the authenticated user account together with the full employee profile in one payload, including roles, department, branch, shift, manager, addresses, educations, emergency contacts, and employee positions.\n\nSample response:\n{\n  \"id\": 1,\n  \"name\": \"Dara Lim\",\n  \"email\": \"dara.lim@example.com\",\n  \"email_verified_at\": null,\n  \"roles\": [\n    {\n      \"id\": 3,\n      \"name\": \"employee\",\n      \"description\": \"Employee\"\n    }\n  ],\n  \"employee\": {\n    \"id\": 10,\n    \"employee_code\": \"EMP000010\",\n    \"first_name\": \"Dara\",\n    \"last_name\": \"Lim\",\n    \"department\": { \"id\": 1, \"name\": \"Operations\" },\n    \"branch\": { \"id\": 1, \"name\": \"HQ\", \"code\": \"HQ\" },\n    \"current_position\": { \"id\": 2, \"title\": \"Support Agent\" },\n    \"addresses\": [\n      {\n        \"id\": 1,\n        \"address_type\": \"current\",\n        \"province\": { \"id\": 1, \"name_en\": \"Phnom Penh\" }\n      }\n    ],\n    \"educations\": [],\n    \"emergency_contacts\": [],\n    \"employee_positions\": []\n  },\n  \"created_at\": \"2026-04-06T10:00:00+07:00\",\n  \"updated_at\": \"2026-04-06T10:00:00+07:00\"\n}",
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "profile"
+              ]
+            }
+          }
+        },
+        {
           "name": "Refresh Token",
           "request": {
             "auth": {
@@ -184,6 +219,212 @@
       ]
     },
     {
+      "name": "Admin Users",
+      "item": [
+        {
+          "name": "List Roles",
+          "request": {
+            "description": "Admin-only role lookup for user management forms.",
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/roles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "roles"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Users",
+          "request": {
+            "description": "Admin-only user list with optional filters: search, role_id, employee_status, employee_id, and per_page.\n\nSample response:\n{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"name\": \"Visible User\",\n      \"email\": \"visible@example.com\",\n      \"email_verified_at\": null,\n      \"employee_id\": 7,\n      \"employee\": {\n        \"id\": 7,\n        \"employee_code\": \"EMP000201\",\n        \"full_name\": \"Visible Sok\",\n        \"status\": \"active\"\n      },\n      \"roles\": [\n        {\n          \"id\": 3,\n          \"name\": \"employee\",\n          \"description\": \"Employee\"\n        }\n      ],\n      \"created_at\": \"2026-04-06T14:00:00+07:00\",\n      \"updated_at\": \"2026-04-06T14:00:00+07:00\"\n    }\n  ],\n  \"links\": {},\n  \"meta\": {}\n}",
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users?search=Visible&role_id={{role_id}}&employee_status=active&employee_id={{employee_id}}&per_page=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "Visible"
+                },
+                {
+                  "key": "role_id",
+                  "value": "{{role_id}}"
+                },
+                {
+                  "key": "employee_status",
+                  "value": "active"
+                },
+                {
+                  "key": "employee_id",
+                  "value": "{{employee_id}}"
+                },
+                {
+                  "key": "per_page",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Account User\",\n  \"email\": \"account.user@example.com\",\n  \"password\": \"Password123!\",\n  \"employee_id\": {{employee_id}},\n  \"role_ids\": [{{role_id}}]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Show User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{{user_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Account User Updated\",\n  \"email\": \"account.user.updated@example.com\",\n  \"employee_id\": {{secondary_employee_id}},\n  \"role_ids\": [{{role_id}}, {{secondary_role_id}}]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{{user_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reset User Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"new_password\": \"NewPassword123!\",\n  \"new_password_confirmation\": \"NewPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}/reset-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{{user_id}}",
+                "reset-password"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{{user_id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Attendance Employee",
       "item": [
         {
@@ -202,7 +443,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"scan_token\": \"{{scan_token}}\"\n}"
+              "raw": "{}"
             },
             "url": {
               "raw": "{{base_url}}/attendance/check-in",
@@ -217,8 +458,9 @@
           }
         },
         {
-          "name": "Check Out",
+          "name": "Scan Attendance",
           "request": {
+            "description": "Authenticated QR scan entry point. Frontend can call this immediately after the printed QR redirects the user into the app.\n\nBehavior:\n- no attendance today -> check in\n- checked in only -> check out\n- already completed today -> reject\n\nSample check-in response:\n{\n  \"message\": \"Check-in recorded successfully.\",\n  \"data\": {\n    \"id\": 42,\n    \"employeeId\": 7,\n    \"attendanceDate\": \"2026-04-05\",\n    \"checkInTime\": \"08:00:00\",\n    \"checkOutTime\": null,\n    \"workedMinutes\": 0,\n    \"status\": \"checked_in\",\n    \"lateMinutes\": 0,\n    \"earlyLeaveMinutes\": 0,\n    \"overtimeMinutes\": 0,\n    \"source\": \"scan\",\n    \"correctionReason\": null,\n    \"correctionStatus\": \"none\"\n  }\n}\n\nSample completed-day validation error:\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"attendance\": [\n      \"You have already completed attendance for today.\"\n    ]\n  }\n}",
             "method": "POST",
             "header": [
               {
@@ -232,7 +474,38 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"scan_token\": \"{{scan_token}}\"\n}"
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/attendance/scan",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "scan"
+              ]
+            }
+          }
+        },
+    {
+      "name": "Check Out",
+      "request": {
+        "description": "Employee or HR self-service check-out.\n\nSample success response:\n{\n  \"message\": \"Check-out recorded successfully.\",\n  \"data\": {\n    \"id\": 42,\n    \"employeeId\": 7,\n    \"attendanceDate\": \"2026-04-05\",\n    \"checkInTime\": \"08:15:00\",\n    \"checkOutTime\": \"17:15:00\",\n    \"checkInAt\": \"2026-04-05T08:15:00+07:00\",\n    \"checkOutAt\": \"2026-04-05T17:15:00+07:00\",\n    \"workedMinutes\": 540,\n    \"status\": \"present\",\n    \"lateMinutes\": 0,\n    \"earlyLeaveMinutes\": 0,\n    \"overtimeMinutes\": 15,\n    \"source\": \"self_service\",\n    \"correctionReason\": null,\n    \"correctionStatus\": \"none\"\n  }\n}",
+        "method": "POST",
+        "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
             },
             "url": {
               "raw": "{{base_url}}/attendance/check-out",
@@ -246,11 +519,12 @@
             }
           }
         },
-        {
-          "name": "My Today Attendance",
-          "request": {
-            "method": "GET",
-            "header": [
+    {
+      "name": "My Today Attendance",
+      "request": {
+        "description": "Returns the authenticated employee's attendance for today.\n\nSample response:\n{\n  \"data\": {\n    \"attendanceDate\": \"2026-04-05\",\n    \"todayAttendanceStatus\": \"checked_out\",\n    \"nextAction\": \"none\",\n    \"checkInTime\": \"08:15:00\",\n    \"checkOutTime\": \"17:15:00\",\n    \"workedMinutes\": 540,\n    \"lateMinutes\": 0,\n    \"earlyLeaveMinutes\": 0,\n    \"overtimeMinutes\": 15,\n    \"status\": \"present\",\n    \"source\": \"self_service\",\n    \"correctionStatus\": \"none\",\n    \"notes\": null\n  }\n}",
+        "method": "GET",
+        "header": [
               {
                 "key": "Accept",
                 "value": "application/json"
@@ -298,11 +572,12 @@
             }
           }
         },
-        {
-          "name": "My Attendance Summary",
-          "request": {
-            "method": "GET",
-            "header": [
+    {
+      "name": "My Attendance Summary",
+      "request": {
+        "description": "Returns self-service attendance summary. The `today`, `thisWeek`, and `thisMonth` sections now include overtime minutes.\n\nSample response excerpt:\n{\n  \"data\": {\n    \"today\": {\n      \"workedMinutes\": 540,\n      \"lateMinutes\": 0,\n      \"earlyLeaveMinutes\": 0,\n      \"overtimeMinutes\": 15,\n      \"correctionStatus\": \"none\"\n    },\n    \"thisWeek\": {\n      \"presentDays\": 4,\n      \"lateCount\": 1,\n      \"absentCount\": 0,\n      \"workedMinutes\": 2160,\n      \"overtimeMinutes\": 45\n    },\n    \"thisMonth\": {\n      \"presentDays\": 12,\n      \"lateCount\": 2,\n      \"absentCount\": 1,\n      \"workedMinutes\": 6480,\n      \"overtimeMinutes\": 90,\n      \"pendingCorrectionRequests\": 1\n    }\n  }\n}",
+        "method": "GET",
+        "header": [
               {
                 "key": "Accept",
                 "value": "application/json"
@@ -322,10 +597,11 @@
           }
         },
         {
-          "name": "Submit Correction Request",
-          "request": {
-            "method": "POST",
-            "header": [
+      "name": "Submit Correction Request",
+      "request": {
+        "description": "Submit a correction request for the authenticated employee's own attendance record.\n\nRules:\n- If the record already has a pending correction request, the API rejects the new request.\n- If the record was already approved, the API rejects the new request.\n- A new request is allowed again only when the previous correction request was rejected.\n\nSample success response:\n{\n  \"message\": \"Attendance correction request submitted successfully.\",\n  \"data\": {\n    \"id\": 15,\n    \"attendanceId\": 42,\n    \"employeeId\": 7,\n    \"requestedCheckInTime\": \"2026-04-03T08:00:00+07:00\",\n    \"requestedCheckOutTime\": \"2026-04-03T17:00:00+07:00\",\n    \"reason\": \"Scanner was delayed during entry.\",\n    \"status\": \"pending\"\n  }\n}\n\nSample validation error for an already approved attendance record:\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"attendance_id\": [\n      \"This attendance record has already been corrected and approved. A new correction request is only allowed after rejection.\"\n    ]\n  }\n}",
+        "method": "POST",
+        "header": [
               {
                 "key": "Accept",
                 "value": "application/json"
@@ -351,17 +627,50 @@
               ]
             }
           }
+        },
+        {
+          "name": "Submit Missing Attendance Request",
+          "request": {
+            "description": "Submit a missing attendance request for a date where the authenticated employee has no attendance record yet.\n\nRules:\n- Use this when the employee forgot both check-in and check-out.\n- The API rejects the request if an attendance record already exists for that date.\n- A new missing request for the same date is blocked while a previous one is pending or already approved.\n- A new request is allowed again only when the previous missing request was rejected.\n\nSample success response:\n{\n  \"message\": \"Missing attendance request submitted successfully.\",\n  \"data\": {\n    \"id\": 16,\n    \"attendanceId\": null,\n    \"attendanceDate\": \"2026-04-04\",\n    \"employee\": {\n      \"id\": 7,\n      \"name\": \"Emma Employee\",\n      \"department\": \"Operations\"\n    },\n    \"requestedCheckInTime\": \"2026-04-04T08:00:00+07:00\",\n    \"requestedCheckOutTime\": \"2026-04-04T17:00:00+07:00\",\n    \"reason\": \"I forgot to check in and check out that day.\",\n    \"status\": \"pending\",\n    \"reviewNote\": null,\n    \"reviewedAt\": null,\n    \"reviewedBy\": null,\n    \"createdAt\": \"2026-04-05T09:00:00+07:00\",\n    \"updatedAt\": \"2026-04-05T09:00:00+07:00\",\n    \"attendance\": null\n  }\n}\n\nSample validation error for a duplicate approved/pending request:\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"attendance_date\": [\n      \"A missing attendance request for this date already exists and can only be submitted again after rejection.\"\n    ]\n  }\n}",
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attendance_date\": \"2026-04-04\",\n  \"requested_check_in_time\": \"2026-04-04T08:00:00+07:00\",\n  \"requested_check_out_time\": \"2026-04-04T17:00:00+07:00\",\n  \"reason\": \"I forgot to check in and check out that day.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/attendance/me/missing-request",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "me",
+                "missing-request"
+              ]
+            }
+          }
         }
       ]
     },
     {
       "name": "Attendance HR",
       "item": [
-        {
-          "name": "Attendance List",
-          "request": {
-            "method": "GET",
-            "header": [
+    {
+      "name": "Attendance List",
+      "request": {
+        "description": "HR/admin attendance management list.\n\nSample item excerpt:\n{\n  \"id\": 42,\n  \"employeeId\": 7,\n  \"attendanceDate\": \"2026-04-05\",\n  \"checkInTime\": \"08:15:00\",\n  \"checkOutTime\": \"17:15:00\",\n  \"workedMinutes\": 540,\n  \"status\": \"present\",\n  \"lateMinutes\": 0,\n  \"earlyLeaveMinutes\": 0,\n  \"overtimeMinutes\": 15,\n  \"source\": \"manual\",\n  \"correctionStatus\": \"none\",\n  \"employee\": {\n    \"id\": 7,\n    \"name\": \"Emma Employee\",\n    \"department\": \"Operations\"\n  }\n}",
+        "method": "GET",
+        "header": [
               {
                 "key": "Accept",
                 "value": "application/json"
@@ -404,11 +713,12 @@
             }
           }
         },
-        {
-          "name": "Attendance Detail",
-          "request": {
-            "method": "GET",
-            "header": [
+    {
+      "name": "Attendance Detail",
+      "request": {
+        "description": "Attendance detail now includes overtime minutes.\n\nSample response excerpt:\n{\n  \"data\": {\n    \"id\": 42,\n    \"employeeId\": 7,\n    \"attendanceDate\": \"2026-04-05\",\n    \"workedMinutes\": 540,\n    \"lateMinutes\": 0,\n    \"earlyLeaveMinutes\": 0,\n    \"overtimeMinutes\": 15,\n    \"status\": \"present\"\n  }\n}",
+        "method": "GET",
+        "header": [
               {
                 "key": "Accept",
                 "value": "application/json"
@@ -426,11 +736,12 @@
             }
           }
         },
-        {
-          "name": "Create Manual Attendance",
-          "request": {
-            "method": "POST",
-            "header": [
+    {
+      "name": "Create Manual Attendance",
+      "request": {
+        "description": "Create or backfill attendance as HR.\n\nIf check-out extends past the configured work end time, the backend stores that extra time as `overtimeMinutes`.\n\nSample success response excerpt:\n{\n  \"message\": \"Attendance created successfully.\",\n  \"data\": {\n    \"workedMinutes\": 540,\n    \"lateMinutes\": 0,\n    \"earlyLeaveMinutes\": 0,\n    \"overtimeMinutes\": 15,\n    \"status\": \"present\",\n    \"source\": \"manual\"\n  }\n}",
+        "method": "POST",
+        "header": [
               {
                 "key": "Accept",
                 "value": "application/json"
@@ -452,6 +763,80 @@
               "path": [
                 "attendance",
                 "manual"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Outage Recovery Preview",
+          "request": {
+            "description": "Preview the default-selected employees for downtime recovery. The backend includes active employees who are not on approved leave and do not already have attendance for the selected date.\n\nSupports:\n- `search`\n- `department_id`\n- `per_page`\n\nSample response excerpt:\n{\n  \"data\": {\n    \"date\": \"2026-04-06\",\n    \"defaults\": {\n      \"checkInAt\": \"2026-04-06T08:00:00+07:00\",\n      \"checkOutAt\": \"2026-04-06T17:00:00+07:00\",\n      \"notes\": \"System outage recovery\"\n    },\n    \"selectedEmployees\": {\n      \"current_page\": 1,\n      \"data\": [\n        {\n          \"id\": 7,\n          \"employeeCode\": \"EMP000007\",\n          \"name\": \"Emma Employee\",\n          \"department\": \"Operations\",\n          \"currentPosition\": \"Coordinator\",\n          \"selected\": true,\n          \"skipReason\": null\n        }\n      ],\n      \"per_page\": 10,\n      \"total\": 1\n    },\n    \"skipped\": {\n      \"counts\": {\n        \"onLeave\": 0,\n        \"existingAttendance\": 0\n      },\n      \"onLeave\": [],\n      \"existingAttendance\": []\n    }\n  }\n}",
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/outage-recovery/preview?date=2026-04-06&search=Emma&department_id={{department_id}}&per_page=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "outage-recovery",
+                "preview"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-04-06"
+                },
+                {
+                  "key": "search",
+                  "value": "Emma"
+                },
+                {
+                  "key": "department_id",
+                  "value": "{{department_id}}"
+                },
+                {
+                  "key": "per_page",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Outage Recovery Apply",
+          "request": {
+            "description": "Create downtime recovery attendance only for the HR-confirmed employee list.\n\nIf `check_in_time` is provided and `check_out_time` is `null`, the backend creates an open attendance record so the employee can check out later by self-service or scan.\n\nIf both times are omitted, the backend uses the configured work start and end time for a full-day recovery record.\n\nSample success response excerpt:\n{\n  \"message\": \"Outage recovery attendance created successfully.\",\n  \"data\": {\n    \"date\": \"2026-04-06\",\n    \"createdCount\": 2,\n    \"notes\": \"System outage recovery\",\n    \"employees\": [\n      {\n        \"id\": 7,\n        \"employeeCode\": \"EMP000007\",\n        \"name\": \"Emma Employee\",\n        \"department\": \"Operations\",\n        \"currentPosition\": \"Coordinator\",\n        \"selected\": true,\n        \"skipReason\": null\n      }\n    ]\n  }\n}",
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"2026-04-06\",\n  \"employee_ids\": [{{employee_id}}],\n  \"check_in_time\": \"2026-04-06T09:15:00+07:00\",\n  \"check_out_time\": null,\n  \"notes\": \"System outage recovery\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/attendance/outage-recovery/apply",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "outage-recovery",
+                "apply"
               ]
             }
           }

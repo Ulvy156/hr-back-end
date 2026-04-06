@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 #[Fillable([
     'edited_by',
@@ -20,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'worked_minutes',
     'late_minutes',
     'early_leave_minutes',
+    'overtime_minutes',
     'status',
     'source',
     'notes',
@@ -28,7 +31,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class Attendance extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     /**
      * @return array<string, string>
@@ -42,7 +45,34 @@ class Attendance extends Model
             'worked_minutes' => 'integer',
             'late_minutes' => 'integer',
             'early_leave_minutes' => 'integer',
+            'overtime_minutes' => 'integer',
         ];
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName('attendance')
+            ->logOnly([
+                'edited_by',
+                'created_by',
+                'updated_by',
+                'corrected_by',
+                'employee_id',
+                'attendance_date',
+                'check_in',
+                'check_out',
+                'worked_minutes',
+                'late_minutes',
+                'early_leave_minutes',
+                'overtime_minutes',
+                'status',
+                'source',
+                'correction_status',
+            ])
+            ->logOnlyDirty()
+            ->dontLogIfAttributesChangedOnly(['updated_at'])
+            ->dontSubmitEmptyLogs();
     }
 
     public function employee(): BelongsTo

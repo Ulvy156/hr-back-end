@@ -6,6 +6,7 @@ use App\Models\Employee;
 use App\Models\Position;
 use App\Models\Role;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Passport\Passport;
 
@@ -26,7 +27,7 @@ it('allows a self export user to download only their own attendance in excel', f
 
     $binaryResponse = $response->baseResponse;
     $file = $binaryResponse->getFile()->getPathname();
-    $zip = new \ZipArchive;
+    $zip = new ZipArchive;
     $zip->open($file);
     $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
     $zip->close();
@@ -92,8 +93,8 @@ function createExportUser(string $roleName): User
         'user_id' => $user->id,
         'department_id' => $department->id,
         'current_position_id' => $position->id,
-        'first_name' => fake()->firstName(),
-        'last_name' => fake()->lastName(),
+        'first_name' => fake()->unique()->lexify('Emp????'),
+        'last_name' => fake()->unique()->lexify('User????'),
         'email' => fake()->unique()->safeEmail(),
         'phone' => fake()->numerify('##########'),
         'hire_date' => now()->subYear()->toDateString(),
@@ -117,9 +118,10 @@ function createAttendanceRecord(
     ?string $checkOutTime,
     string $status,
     int $lateMinutes = 0,
+    int $overtimeMinutes = 0,
 ): Attendance {
-    $checkIn = \Carbon\Carbon::parse($attendanceDate.' '.$checkInTime);
-    $checkOut = $checkOutTime !== null ? \Carbon\Carbon::parse($attendanceDate.' '.$checkOutTime) : null;
+    $checkIn = Carbon::parse($attendanceDate.' '.$checkInTime);
+    $checkOut = $checkOutTime !== null ? Carbon::parse($attendanceDate.' '.$checkOutTime) : null;
 
     return Attendance::query()->create([
         'employee_id' => $user->employee->id,
@@ -132,6 +134,7 @@ function createAttendanceRecord(
         'worked_minutes' => $checkOut !== null ? $checkIn->diffInMinutes($checkOut) : 0,
         'late_minutes' => $lateMinutes,
         'early_leave_minutes' => 0,
+        'overtime_minutes' => $overtimeMinutes,
         'status' => $status,
         'source' => 'manual',
         'correction_status' => 'none',

@@ -7,20 +7,24 @@ use App\Http\Requests\Attendance\AttendanceCorrectRequest;
 use App\Http\Requests\Attendance\AttendanceExportRequest;
 use App\Http\Requests\Attendance\AttendanceIndexRequest;
 use App\Http\Requests\Attendance\AttendanceManualStoreRequest;
+use App\Http\Requests\Attendance\AttendanceOutageRecoveryApplyRequest;
+use App\Http\Requests\Attendance\AttendanceOutageRecoveryPreviewRequest;
 use App\Http\Requests\Attendance\CheckInRequest;
 use App\Http\Requests\Attendance\CheckOutRequest;
 use App\Http\Requests\Attendance\CorrectionRequestReviewRequest;
 use App\Http\Requests\Attendance\CorrectionRequestStoreRequest;
+use App\Http\Requests\Attendance\MissingAttendanceRequestStoreRequest;
 use App\Http\Requests\Attendance\MonthlySummaryRequest;
+use App\Http\Requests\Attendance\ScanAttendanceRequest;
 use App\Models\Attendance;
 use App\Models\AttendanceCorrectionRequest;
 use App\Services\Attendance\AttendanceCorrectionRequestStatus;
 use App\Services\Attendance\AttendanceExportService;
 use App\Services\Attendance\AttendanceService;
 use App\Services\Attendance\AttendanceStatus;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class AttendanceController extends Controller
@@ -42,6 +46,16 @@ class AttendanceController extends Controller
     {
         return response()->json(
             $this->attendanceService->checkOut($request->user('api'), $request->validated())
+        );
+    }
+
+    public function scan(ScanAttendanceRequest $request): JsonResponse
+    {
+        $result = $this->attendanceService->scan($request->user('api'), $request->validated());
+
+        return response()->json(
+            $result['body'],
+            $result['status_code'],
         );
     }
 
@@ -74,6 +88,14 @@ class AttendanceController extends Controller
     {
         return response()->json(
             $this->attendanceService->submitCorrectionRequest($request->user('api'), $request->validated()),
+            Response::HTTP_CREATED,
+        );
+    }
+
+    public function submitMissingAttendanceRequest(MissingAttendanceRequestStoreRequest $request): JsonResponse
+    {
+        return response()->json(
+            $this->attendanceService->submitMissingAttendanceRequest($request->user('api'), $request->validated()),
             Response::HTTP_CREATED,
         );
     }
@@ -118,6 +140,20 @@ class AttendanceController extends Controller
     {
         return response()->json(
             $this->attendanceService->monthlySummary($request->user('api'), $request->validated())
+        );
+    }
+
+    public function outageRecoveryPreview(AttendanceOutageRecoveryPreviewRequest $request): JsonResponse
+    {
+        return response()->json(
+            $this->attendanceService->outageRecoveryPreview($request->user('api'), $request->validated())
+        );
+    }
+
+    public function outageRecoveryApply(AttendanceOutageRecoveryApplyRequest $request): JsonResponse
+    {
+        return response()->json(
+            $this->attendanceService->outageRecoveryApply($request->user('api'), $request->validated())
         );
     }
 

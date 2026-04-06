@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Services\Attendance\Exports\AttendanceExcelExporter;
 use App\Services\Attendance\Exports\AttendancePdfExporter;
+use App\Services\AuditLogService;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
@@ -21,19 +22,22 @@ class AttendanceExportService
         private AttendanceService $attendanceService,
         private AttendancePdfExporter $attendancePdfExporter,
         private AttendanceExcelExporter $attendanceExcelExporter,
+        private AuditLogService $auditLogService,
     ) {}
 
     /**
-     * @param array<string, mixed> $filters
+     * @param  array<string, mixed>  $filters
      * @return array{path: string, filename: string, content_type: string}
      */
     public function exportPdf(?User $authenticatedUser, array $filters = []): array
     {
+        $authenticatedUser = $this->ensureAuthenticated($authenticatedUser);
         $report = $this->buildReport($authenticatedUser, $filters);
         $filename = $this->buildFilename($report['scope'], $report['period_key'], 'pdf');
         $path = $this->temporaryPath($filename);
 
         $this->attendancePdfExporter->store($path, $report);
+        $this->logExport($authenticatedUser, 'pdf', $filters, $report);
 
         return [
             'path' => $path,
@@ -43,16 +47,18 @@ class AttendanceExportService
     }
 
     /**
-     * @param array<string, mixed> $filters
+     * @param  array<string, mixed>  $filters
      * @return array{path: string, filename: string, content_type: string}
      */
     public function exportExcel(?User $authenticatedUser, array $filters = []): array
     {
+        $authenticatedUser = $this->ensureAuthenticated($authenticatedUser);
         $report = $this->buildReport($authenticatedUser, $filters);
         $filename = $this->buildFilename($report['scope'], $report['period_key'], 'xlsx');
         $path = $this->temporaryPath($filename);
 
         $this->attendanceExcelExporter->store($path, $report);
+        $this->logExport($authenticatedUser, 'excel', $filters, $report);
 
         return [
             'path' => $path,
@@ -62,7 +68,7 @@ class AttendanceExportService
     }
 
     /**
-     * @param array<string, mixed> $filters
+     * @param  array<string, mixed>  $filters
      * @return array{
      *     title: string,
      *     generated_at: string,
@@ -120,7 +126,7 @@ class AttendanceExportService
     }
 
     /**
-     * @param array<string, mixed> $filters
+     * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
      */
     private function normalizeFilters(User $authenticatedUser, array $filters, string $scope): array
@@ -156,6 +162,7 @@ class AttendanceExportService
         $correctedRecords = $records->filter(fn (array $record): bool => $record['status'] === AttendanceStatus::Corrected)->count();
         $absentRecords = $records->filter(fn (array $record): bool => $record['status'] === AttendanceStatus::Absent)->count();
         $totalWorkedMinutes = $records->sum(fn (array $record): int => (int) $record['worked_minutes']);
+        $totalOvertimeMinutes = $records->sum(fn (array $record): int => (int) $record['overtime_minutes']);
 
         return [
             'total_records' => $totalRecords,
@@ -164,6 +171,7 @@ class AttendanceExportService
             'corrected_records' => $correctedRecords,
             'absent_records' => $absentRecords,
             'total_worked_minutes' => $totalWorkedMinutes,
+            'total_overtime_minutes' => $totalOvertimeMinutes,
             'average_worked_minutes' => $completedRecords > 0
                 ? (int) round($totalWorkedMinutes / $completedRecords)
                 : 0,
@@ -171,7 +179,7 @@ class AttendanceExportService
     }
 
     /**
-     * @param array<string, mixed> $filters
+     * @param  array<string, mixed>  $filters
      * @return array<int, string>
      */
     private function filterSummary(array $filters): array
@@ -212,7 +220,7 @@ class AttendanceExportService
     }
 
     /**
-     * @param array<string, mixed> $filters
+     * @param  array<string, mixed>  $filters
      */
     private function periodLabel(array $filters): string
     {
@@ -228,7 +236,7 @@ class AttendanceExportService
     }
 
     /**
-     * @param array<string, mixed> $filters
+     * @param  array<string, mixed>  $filters
      */
     private function periodKey(array $filters): string
     {
@@ -265,6 +273,36 @@ class AttendanceExportService
     }
 
     /**
+     * @param  array<string, mixed>  $filters
+     * @param array{
+     *     title: string,
+     *     generated_at: string,
+     *     scope: string,
+     *     period_label: string,
+     *     period_key: string,
+     *     filter_summary: array<int, string>,
+     *     summary: array<string, int>,
+     *     records: array<int, array<string, string|int|null>>
+     * } $report
+     */
+    private function logExport(User $authenticatedUser, string $format, array $filters, array $report): void
+    {
+        $this->auditLogService->log(
+            logName: 'attendance',
+            event: 'exported',
+            description: 'attendance.exported',
+            causer: $authenticatedUser,
+            properties: [
+                'format' => $format,
+                'scope' => $report['scope'],
+                'period' => $report['period_key'],
+                'record_count' => count($report['records']),
+                'filters' => $filters,
+            ],
+        );
+    }
+
+    /**
      * @return array<string, string|int|null>
      */
     private function transformRecord(Attendance $attendance): array
@@ -283,6 +321,7 @@ class AttendanceExportService
             'status' => $attendance->status,
             'late_minutes' => (int) $attendance->late_minutes,
             'early_leave_minutes' => (int) $attendance->early_leave_minutes,
+            'overtime_minutes' => (int) $attendance->overtime_minutes,
             'correction_status' => $attendance->correction_status,
         ];
     }

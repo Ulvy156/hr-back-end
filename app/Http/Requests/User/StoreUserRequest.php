@@ -3,6 +3,7 @@
 namespace App\Http\Requests\User;
 
 use App\Models\Employee;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -37,6 +38,8 @@ class StoreUserRequest extends FormRequest
                     fn ($query) => $query->whereNull('user_id')
                 ),
             ],
+            'role_ids' => ['sometimes', 'array'],
+            'role_ids.*' => ['integer', 'distinct', Rule::exists(Role::class, 'id')],
         ];
     }
 }

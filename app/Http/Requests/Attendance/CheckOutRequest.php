@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Attendance;
 
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Foundation\Http\FormRequest;
 
 class CheckOutRequest extends FormRequest
 {
@@ -17,8 +17,6 @@ class CheckOutRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
-            'scan_token' => ['nullable', 'string', 'max:255'],
-        ];
+        return [];
     }
 }

@@ -18,12 +18,16 @@ class HrmsDemoSeeder extends Seeder
 {
     private const DEFAULT_PASSWORD = 'password';
 
+    private const EXTRA_EMPLOYEE_COUNT = 50;
+
     /**
      * Seed the application's database.
      */
     public function run(): void
     {
         DB::transaction(function (): void {
+            $this->syncPostgresSequences();
+
             $departments = $this->seedDepartments();
             $positions = $this->seedPositions();
             $roles = $this->seedRolesAndPermissions();
@@ -174,7 +178,42 @@ class HrmsDemoSeeder extends Seeder
                 operationsManager: $operationsManager,
                 hrManager: $hrManager,
             );
+
+            $this->seedAdditionalEmployees(
+                departments: $departments,
+                positions: $positions,
+                role: $roles['employee'],
+                hrManager: $hrManager,
+                operationsManager: $operationsManager,
+                financeOfficer: $financeOfficer,
+            );
         });
+    }
+
+    private function syncPostgresSequences(): void
+    {
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
+
+        foreach ([
+            'users',
+            'employees',
+            'employee_positions',
+            'departments',
+            'positions',
+            'roles',
+            'permissions',
+            'user_roles',
+            'role_permissions',
+            'leave_requests',
+        ] as $table) {
+            $maxId = (int) DB::table($table)->max('id');
+
+            DB::statement(
+                "SELECT setval(pg_get_serial_sequence('{$table}', 'id'), ".max($maxId, 1).', '.($maxId > 0 ? 'true' : 'false').')'
+            );
+        }
     }
 
     /**
@@ -401,5 +440,65 @@ class HrmsDemoSeeder extends Seeder
                 'status' => 'hr_approved',
             ]
         );
+    }
+
+    /**
+     * @param  array<string, Department>  $departments
+     * @param  array<string, Position>  $positions
+     */
+    private function seedAdditionalEmployees(
+        array $departments,
+        array $positions,
+        Role $role,
+        Employee $hrManager,
+        Employee $operationsManager,
+        Employee $financeOfficer,
+    ): void {
+        $departmentAssignments = [
+            [
+                'department' => $departments['operations'],
+                'position' => $positions['operations_staff'],
+                'manager' => $operationsManager,
+                'salary' => '720.00',
+            ],
+            [
+                'department' => $departments['human_resources'],
+                'position' => $positions['hr_officer'],
+                'manager' => $hrManager,
+                'salary' => '880.00',
+            ],
+            [
+                'department' => $departments['finance'],
+                'position' => $positions['accountant'],
+                'manager' => $financeOfficer,
+                'salary' => '940.00',
+            ],
+        ];
+
+        for ($index = 1; $index <= self::EXTRA_EMPLOYEE_COUNT; $index++) {
+            $assignment = $departmentAssignments[($index - 1) % count($departmentAssignments)];
+            $employeeNumber = str_pad((string) $index, 2, '0', STR_PAD_LEFT);
+
+            $this->upsertEmployeeWithUser(
+                user: [
+                    'name' => 'Demo Employee '.$employeeNumber,
+                    'email' => 'demo.employee.'.$employeeNumber.'@example.com',
+                ],
+                employee: [
+                    'department_id' => $assignment['department']->id,
+                    'current_position_id' => $assignment['position']->id,
+                    'manager_id' => $assignment['manager']->id,
+                    'employee_code' => 'EMPDEMO'.$employeeNumber,
+                    'first_name' => 'Demo',
+                    'last_name' => 'Employee '.$employeeNumber,
+                    'email' => 'demo.employee.'.$employeeNumber.'@example.com',
+                    'phone' => '0'.str_pad((string) (12000000 + $index), 9, '0', STR_PAD_LEFT),
+                    'hire_date' => now()->subDays($index)->toDateString(),
+                    'status' => 'active',
+                ],
+                role: $role,
+                baseSalary: $assignment['salary'],
+            );
+        }
     }
 }

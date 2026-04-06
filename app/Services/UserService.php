@@ -3,27 +3,73 @@
 namespace App\Services;
 
 use App\Models\Employee;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class UserService
 {
-    public function paginateUsers(int $perPage = 15): LengthAwarePaginator
+    /**
+     * @var array<int, string>
+     */
+    private const USER_RELATIONS = [
+        'roles',
+        'employee.department',
+        'employee.currentPosition',
+        'employee.manager',
+        'employee.branch',
+        'employee.shift',
+    ];
+
+    /**
+     * @param  array{search?: string|null, role_id?: int|string|null, employee_id?: int|string|null, employee_status?: string|null}  $filters
+     */
+    public function paginateUsers(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
         return User::query()
-            ->with('employee')
-            ->paginate($perPage);
+            ->with(self::USER_RELATIONS)
+            ->when(
+                filled($filters['search'] ?? null),
+                fn (Builder $query): Builder => $this->applySearch($query, (string) $filters['search'])
+            )
+            ->when(
+                filled($filters['role_id'] ?? null),
+                fn (Builder $query): Builder => $query->whereHas(
+                    'roles',
+                    fn (Builder $roleQuery): Builder => $roleQuery->whereKey($filters['role_id'])
+                )
+            )
+            ->when(
+                filled($filters['employee_id'] ?? null),
+                fn (Builder $query): Builder => $query->whereHas(
+                    'employee',
+                    fn (Builder $employeeQuery): Builder => $employeeQuery->whereKey($filters['employee_id'])
+                )
+            )
+            ->when(
+                filled($filters['employee_status'] ?? null),
+                fn (Builder $query): Builder => $query->whereHas(
+                    'employee',
+                    fn (Builder $employeeQuery): Builder => $employeeQuery->where('status', $filters['employee_status'])
+                )
+            )
+            ->orderBy('name')
+            ->orderBy('id')
+            ->paginate($perPage)
+            ->withQueryString();
     }
 
     public function getUser(User $user): User
     {
-        return $user->load('employee');
+        return $user->load(self::USER_RELATIONS);
     }
 
     /**
-     * @param array{name: string, email: string, password: string, employee_id: int} $data
+     * @param  array{name: string, email: string, password: string, employee_id: int, role_ids?: array<int, int>}  $data
      */
     public function createUser(array $data): User
     {
@@ -43,12 +89,14 @@ class UserService
             $employee->user()->associate($user);
             $employee->save();
 
-            return $user->load('employee');
+            $this->syncRoles($user, $data);
+
+            return $user->load(self::USER_RELATIONS);
         });
     }
 
     /**
-     * @param array{name: string, email: string, password?: string|null, employee_id: int} $data
+     * @param  array{name: string, email: string, password?: string|null, employee_id: int, role_ids?: array<int, int>}  $data
      */
     public function updateUser(User $user, array $data): User
     {
@@ -84,7 +132,9 @@ class UserService
                 $targetEmployee->save();
             }
 
-            return $user->load('employee');
+            $this->syncRoles($user, $data);
+
+            return $user->load(self::USER_RELATIONS);
         });
     }
 
@@ -104,6 +154,16 @@ class UserService
         });
     }
 
+    /**
+     * @return Collection<int, Role>
+     */
+    public function listRoles(): Collection
+    {
+        return Role::query()
+            ->orderBy('name')
+            ->get();
+    }
+
     private function ensureEmployeeIsAvailable(Employee $employee, ?User $user = null): void
     {
         if ($employee->user_id === null) {
@@ -117,5 +177,36 @@ class UserService
         throw ValidationException::withMessages([
             'employee_id' => 'This employee already has a user account.',
         ]);
+    }
+
+    private function applySearch(Builder $query, string $search): Builder
+    {
+        $normalizedSearch = trim($search);
+
+        return $query->where(function (Builder $userQuery) use ($normalizedSearch): void {
+            $userQuery
+                ->where('users.name', 'like', '%'.$normalizedSearch.'%')
+                ->orWhere('users.email', 'like', '%'.$normalizedSearch.'%')
+                ->orWhereHas('employee', function (Builder $employeeQuery) use ($normalizedSearch): void {
+                    $employeeQuery
+                        ->where('employee_code', 'like', '%'.$normalizedSearch.'%')
+                        ->orWhere('first_name', 'like', '%'.$normalizedSearch.'%')
+                        ->orWhere('last_name', 'like', '%'.$normalizedSearch.'%')
+                        ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ['%'.$normalizedSearch.'%'])
+                        ->orWhere('email', 'like', '%'.$normalizedSearch.'%');
+                });
+        });
+    }
+
+    /**
+     * @param  array{role_ids?: array<int, int>}  $data
+     */
+    private function syncRoles(User $user, array $data): void
+    {
+        if (! array_key_exists('role_ids', $data) || ! is_array($data['role_ids'])) {
+            return;
+        }
+
+        $user->roles()->sync($data['role_ids']);
     }
 }

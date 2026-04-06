@@ -6,6 +6,7 @@ use App\Models\Attendance;
 use App\Models\AttendanceCorrectionRequest;
 use App\Models\Employee;
 use App\Models\User;
+use App\Services\AuditLogService;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -17,127 +18,66 @@ use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 
 class AttendanceService
 {
+    public function __construct(private AuditLogService $auditLogService) {}
+
     /**
-     * @param array{scan_token?: string|null} $data
+     * @param  array<string, mixed>  $data
      * @return array{message: string, data: array<string, mixed>}
      */
     public function checkIn(?User $authenticatedUser, array $data): array
     {
         $authenticatedUser = $this->ensureAuthenticated($authenticatedUser);
         $employee = $this->ensureEmployeeProfile($authenticatedUser);
-        $this->validateScanToken($data['scan_token'] ?? null);
 
-        return DB::transaction(function () use ($authenticatedUser, $employee, $data): array {
-            $timestamp = now();
-
-            /** @var Attendance|null $attendance */
-            $attendance = Attendance::query()
-                ->where('employee_id', $employee->id)
-                ->whereDate('attendance_date', $timestamp->toDateString())
-                ->lockForUpdate()
-                ->first();
-
-            if ($attendance !== null && $attendance->check_in !== null) {
-                throw ValidationException::withMessages([
-                    'attendance' => ['You have already checked in for today.'],
-                ]);
-            }
-
-            $payload = $this->buildAttendancePayload(
-                attendanceDate: $timestamp,
-                checkIn: $timestamp,
-                checkOut: null,
-            );
-
-            if ($attendance === null) {
-                $attendance = Attendance::query()->create([
-                    'employee_id' => $employee->id,
-                    'edited_by' => $authenticatedUser->id,
-                    'created_by' => $authenticatedUser->id,
-                    'updated_by' => $authenticatedUser->id,
-                    'attendance_date' => $timestamp->toDateString(),
-                    'check_in' => $timestamp,
-                    'check_out' => null,
-                    ...$payload,
-                    'source' => $this->resolveSelfServiceSource($data['scan_token'] ?? null),
-                ]);
-            } else {
-                $attendance->forceFill([
-                    'edited_by' => $authenticatedUser->id,
-                    'updated_by' => $authenticatedUser->id,
-                    'check_in' => $timestamp,
-                    'check_out' => null,
-                    ...$payload,
-                    'source' => $this->resolveSelfServiceSource($data['scan_token'] ?? null),
-                ])->save();
-            }
-
-            return [
-                'message' => 'Check-in recorded successfully.',
-                'data' => $this->transformAttendance(
-                    $attendance->fresh(['employee.department']),
-                    includeEmployee: false,
-                    includeAudit: false,
-                ),
-            ];
-        });
+        return $this->performCheckIn($authenticatedUser, $employee, AttendanceSource::SelfService);
     }
 
     /**
-     * @param array{scan_token?: string|null} $data
+     * @param  array<string, mixed>  $data
      * @return array{message: string, data: array<string, mixed>}
      */
     public function checkOut(?User $authenticatedUser, array $data): array
     {
         $authenticatedUser = $this->ensureAuthenticated($authenticatedUser);
         $employee = $this->ensureEmployeeProfile($authenticatedUser);
-        $this->validateScanToken($data['scan_token'] ?? null);
 
-        return DB::transaction(function () use ($authenticatedUser, $employee, $data): array {
-            $timestamp = now();
+        return $this->performCheckOut($authenticatedUser, $employee, AttendanceSource::SelfService);
+    }
 
-            /** @var Attendance|null $attendance */
-            $attendance = Attendance::query()
-                ->where('employee_id', $employee->id)
-                ->whereDate('attendance_date', $timestamp->toDateString())
-                ->lockForUpdate()
-                ->first();
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{
+     *     body: array{message: string, data: array<string, mixed>},
+     *     status_code: int
+     * }
+     */
+    public function scan(?User $authenticatedUser, array $data): array
+    {
+        $authenticatedUser = $this->ensureAuthenticated($authenticatedUser);
+        $employee = $this->ensureEmployeeProfile($authenticatedUser);
 
-            if ($attendance === null || $attendance->check_in === null) {
-                throw ValidationException::withMessages([
-                    'attendance' => ['You must check in before checking out.'],
-                ]);
-            }
+        $todayAttendance = Attendance::query()
+            ->where('employee_id', $employee->id)
+            ->whereDate('attendance_date', today()->toDateString())
+            ->first();
 
-            if ($attendance->check_out !== null) {
-                throw ValidationException::withMessages([
-                    'attendance' => ['You have already checked out for today.'],
-                ]);
-            }
-
-            $payload = $this->buildAttendancePayload(
-                attendanceDate: Carbon::parse($attendance->attendance_date),
-                checkIn: Carbon::parse($attendance->check_in),
-                checkOut: $timestamp,
-            );
-
-            $attendance->forceFill([
-                'edited_by' => $authenticatedUser->id,
-                'updated_by' => $authenticatedUser->id,
-                'check_out' => $timestamp,
-                ...$payload,
-                'source' => $this->resolveSelfServiceSource($data['scan_token'] ?? null),
-            ])->save();
-
+        if ($todayAttendance === null || $todayAttendance->check_in === null) {
             return [
-                'message' => 'Check-out recorded successfully.',
-                'data' => $this->transformAttendance(
-                    $attendance->fresh(['employee.department']),
-                    includeEmployee: false,
-                    includeAudit: false,
-                ),
+                'body' => $this->performCheckIn($authenticatedUser, $employee, AttendanceSource::Scan),
+                'status_code' => 201,
             ];
-        });
+        }
+
+        if ($todayAttendance->check_out === null) {
+            return [
+                'body' => $this->performCheckOut($authenticatedUser, $employee, AttendanceSource::Scan),
+                'status_code' => 200,
+            ];
+        }
+
+        throw ValidationException::withMessages([
+            'attendance' => ['You have already completed attendance for today.'],
+        ]);
     }
 
     /**
@@ -163,6 +103,7 @@ class AttendanceService
                 'workedMinutes' => $attendance?->worked_minutes ?? 0,
                 'lateMinutes' => $attendance?->late_minutes ?? 0,
                 'earlyLeaveMinutes' => $attendance?->early_leave_minutes ?? 0,
+                'overtimeMinutes' => $attendance?->overtime_minutes ?? 0,
                 'status' => $attendance?->status ?? AttendanceStatus::NotCheckedIn,
                 'source' => $attendance?->source,
                 'correctionStatus' => $attendance?->correction_status ?? 'none',
@@ -172,7 +113,7 @@ class AttendanceService
     }
 
     /**
-     * @param array{per_page?: int} $filters
+     * @param  array{per_page?: int}  $filters
      */
     public function myHistory(?User $authenticatedUser, array $filters = []): LengthAwarePaginator
     {
@@ -212,6 +153,7 @@ class AttendanceService
                     'workedMinutes' => $todayAttendance?->worked_minutes ?? 0,
                     'lateMinutes' => $todayAttendance?->late_minutes ?? 0,
                     'earlyLeaveMinutes' => $todayAttendance?->early_leave_minutes ?? 0,
+                    'overtimeMinutes' => $todayAttendance?->overtime_minutes ?? 0,
                     'correctionStatus' => $todayAttendance?->correction_status ?? 'none',
                 ],
                 'thisWeek' => $this->employeeRangeSummary(
@@ -248,7 +190,7 @@ class AttendanceService
         $authenticatedUser = $this->ensureAuthenticated($authenticatedUser);
         $employee = $this->ensureEmployeeProfile($authenticatedUser);
 
-        return DB::transaction(function () use ($employee, $data): array {
+        return DB::transaction(function () use ($authenticatedUser, $employee, $data): array {
             /** @var Attendance $attendance */
             $attendance = Attendance::query()
                 ->where('id', $data['attendance_id'])
@@ -259,6 +201,12 @@ class AttendanceService
             if ($attendance->correction_status === AttendanceCorrectionRequestStatus::Pending) {
                 throw ValidationException::withMessages([
                     'attendance_id' => ['There is already a pending correction request for this attendance record.'],
+                ]);
+            }
+
+            if ($attendance->correction_status === AttendanceCorrectionRequestStatus::Approved) {
+                throw ValidationException::withMessages([
+                    'attendance_id' => ['This attendance record has already been corrected and approved. A new correction request is only allowed after rejection.'],
                 ]);
             }
 
@@ -282,11 +230,82 @@ class AttendanceService
                 'correction_reason' => $data['reason'],
             ])->save();
 
+            $correctionRequest = $correctionRequest->fresh(['attendance', 'employee.department']);
+
+            $this->auditLogService->log(
+                logName: 'attendance',
+                event: 'correction_requested',
+                description: 'attendance.correction_requested',
+                causer: $authenticatedUser,
+                subject: $correctionRequest,
+                properties: [
+                    'attendance_id' => $attendance->id,
+                    'employee_id' => $employee->id,
+                    'status' => $correctionRequest?->status,
+                ],
+            );
+
             return [
                 'message' => 'Attendance correction request submitted successfully.',
                 'data' => $this->transformCorrectionRequest(
-                    $correctionRequest->fresh(['attendance', 'employee.department'])
+                    $correctionRequest
                 ),
+            ];
+        });
+    }
+
+    /**
+     * @param array{
+     *     attendance_date: string,
+     *     requested_check_in_time?: string|null,
+     *     requested_check_out_time?: string|null,
+     *     reason: string
+     * } $data
+     */
+    public function submitMissingAttendanceRequest(?User $authenticatedUser, array $data): array
+    {
+        $authenticatedUser = $this->ensureAuthenticated($authenticatedUser);
+        $employee = $this->ensureEmployeeProfile($authenticatedUser);
+
+        return DB::transaction(function () use ($authenticatedUser, $employee, $data): array {
+            $attendanceDate = Carbon::parse($data['attendance_date'])->startOfDay();
+
+            $this->assertNoAttendanceExistsForDate($employee->id, $attendanceDate);
+            $this->assertNoOpenMissingAttendanceRequest($employee->id, $attendanceDate);
+
+            $requestedCheckIn = $this->parseDateTime($data['requested_check_in_time'] ?? null);
+            $requestedCheckOut = $this->parseDateTime($data['requested_check_out_time'] ?? null);
+
+            $this->assertAttendanceDateMatches($attendanceDate, $requestedCheckIn, $requestedCheckOut);
+            $this->assertValidTimeOrder($requestedCheckIn, $requestedCheckOut);
+
+            $correctionRequest = AttendanceCorrectionRequest::query()->create([
+                'attendance_id' => null,
+                'employee_id' => $employee->id,
+                'requested_check_in_time' => $requestedCheckIn,
+                'requested_check_out_time' => $requestedCheckOut,
+                'reason' => $data['reason'],
+                'status' => AttendanceCorrectionRequestStatus::Pending,
+            ]);
+
+            $correctionRequest = $correctionRequest->fresh(['attendance', 'employee.department']);
+
+            $this->auditLogService->log(
+                logName: 'attendance',
+                event: 'missing_attendance_requested',
+                description: 'attendance.missing_attendance_requested',
+                causer: $authenticatedUser,
+                subject: $correctionRequest,
+                properties: [
+                    'employee_id' => $employee->id,
+                    'attendance_date' => $attendanceDate->toDateString(),
+                    'status' => $correctionRequest?->status,
+                ],
+            );
+
+            return [
+                'message' => 'Missing attendance request submitted successfully.',
+                'data' => $this->transformCorrectionRequest($correctionRequest),
             ];
         });
     }
@@ -395,10 +414,26 @@ class AttendanceService
                 'correction_reason' => $data['correction_reason'] ?? null,
             ]);
 
+            $attendance = $attendance->fresh(['employee.department', 'creator', 'updater']);
+
+            $this->auditLogService->log(
+                logName: 'attendance',
+                event: 'manual_created',
+                description: 'attendance.manual_created',
+                causer: $authenticatedUser,
+                subject: $attendance,
+                properties: [
+                    'employee_id' => $attendance?->employee_id,
+                    'attendance_date' => $attendance?->attendance_date?->toDateString(),
+                    'status' => $attendance?->status,
+                    'source' => $attendance?->source,
+                ],
+            );
+
             return [
                 'message' => 'Attendance created successfully.',
                 'data' => $this->transformAttendance(
-                    $attendance->fresh(['employee.department', 'creator', 'updater']),
+                    $attendance,
                     includeEmployee: true,
                     includeAudit: false,
                 ),
@@ -465,10 +500,26 @@ class AttendanceService
                 'correction_status' => AttendanceCorrectionRequestStatus::Approved,
             ])->save();
 
+            $lockedAttendance = $lockedAttendance->fresh(['employee.department', 'corrector', 'updater', 'editor']);
+
+            $this->auditLogService->log(
+                logName: 'attendance',
+                event: 'corrected',
+                description: 'attendance.corrected',
+                causer: $authenticatedUser,
+                subject: $lockedAttendance,
+                properties: [
+                    'employee_id' => $lockedAttendance?->employee_id,
+                    'attendance_date' => $lockedAttendance?->attendance_date?->toDateString(),
+                    'status' => $lockedAttendance?->status,
+                    'correction_status' => $lockedAttendance?->correction_status,
+                ],
+            );
+
             return [
                 'message' => 'Attendance corrected successfully.',
                 'data' => $this->transformAttendance(
-                    $lockedAttendance->fresh(['employee.department', 'corrector', 'updater', 'editor']),
+                    $lockedAttendance,
                     includeEmployee: true,
                     includeAudit: false,
                 ),
@@ -516,7 +567,7 @@ class AttendanceService
     }
 
     /**
-     * @param array{month: string, department_id?: int} $filters
+     * @param  array{month: string, department_id?: int}  $filters
      * @return array{data: array<string, mixed>}
      */
     public function monthlySummary(?User $authenticatedUser, array $filters): array
@@ -549,8 +600,8 @@ class AttendanceService
             ->selectRaw('COUNT(attendances.id) as total_records')
             ->selectRaw('SUM(CASE WHEN attendances.check_in IS NOT NULL AND attendances.check_out IS NOT NULL THEN 1 ELSE 0 END) as completed_records')
             ->selectRaw('SUM(CASE WHEN attendances.late_minutes > 0 THEN 1 ELSE 0 END) as late_records')
-            ->selectRaw("SUM(CASE WHEN attendances.status = ? THEN 1 ELSE 0 END) as corrected_records", [AttendanceStatus::Corrected])
-            ->selectRaw("SUM(CASE WHEN attendances.status = ? THEN 1 ELSE 0 END) as absent_records", [AttendanceStatus::Absent])
+            ->selectRaw('SUM(CASE WHEN attendances.status = ? THEN 1 ELSE 0 END) as corrected_records', [AttendanceStatus::Corrected])
+            ->selectRaw('SUM(CASE WHEN attendances.status = ? THEN 1 ELSE 0 END) as absent_records', [AttendanceStatus::Absent])
             ->selectRaw('SUM(attendances.worked_minutes) as total_worked_minutes')
             ->join('employees', 'employees.id', '=', 'attendances.employee_id')
             ->leftJoin('departments', 'departments.id', '=', 'employees.department_id')
@@ -602,6 +653,196 @@ class AttendanceService
     }
 
     /**
+     * @param  array{
+     *     date?: string,
+     *     search?: string,
+     *     department_id?: int,
+     *     per_page?: int
+     * }  $filters
+     * @return array{data: array<string, mixed>}
+     */
+    public function outageRecoveryPreview(?User $authenticatedUser, array $filters = []): array
+    {
+        $this->ensureHrOperator($authenticatedUser);
+
+        $date = Carbon::parse($filters['date'] ?? today()->toDateString())->startOfDay();
+        $perPage = min(max((int) ($filters['per_page'] ?? 15), 1), 100);
+
+        $selectedEmployees = $this->applyOutageRecoveryEmployeeFilters(
+            $this->outageRecoveryCandidateQuery($date),
+            $filters,
+        )
+            ->with(['department', 'currentPosition'])
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->paginate($perPage)
+            ->through(fn (Employee $employee): array => $this->transformOutageRecoveryEmployee($employee, true));
+
+        $employeesOnLeave = $this->applyOutageRecoveryEmployeeFilters(
+            $this->outageRecoveryEmployeesOnLeaveQuery($date),
+            $filters,
+        )
+            ->with(['department', 'currentPosition'])
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get()
+            ->map(fn (Employee $employee): array => $this->transformOutageRecoveryEmployee($employee, false, 'on_leave'))
+            ->values()
+            ->all();
+
+        $employeesWithAttendance = $this->applyOutageRecoveryEmployeeFilters(
+            $this->outageRecoveryEmployeesWithAttendanceQuery($date),
+            $filters,
+        )
+            ->with(['department', 'currentPosition', 'attendances' => fn ($query) => $query->whereDate('attendance_date', $date->toDateString())])
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get()
+            ->map(function (Employee $employee): array {
+                $attendance = $employee->attendances->first();
+
+                return [
+                    ...$this->transformOutageRecoveryEmployee($employee, false, 'existing_attendance'),
+                    'existingAttendance' => $attendance instanceof Attendance
+                        ? [
+                            'id' => $attendance->id,
+                            'status' => $attendance->status,
+                            'source' => $attendance->source,
+                        ]
+                        : null,
+                ];
+            })
+            ->values()
+            ->all();
+
+        return [
+            'data' => [
+                'date' => $date->toDateString(),
+                'defaults' => [
+                    'checkInAt' => $this->workStart($date)->toIso8601String(),
+                    'checkOutAt' => $this->workEnd($date)->toIso8601String(),
+                    'notes' => $this->outageRecoveryDefaultNotes(),
+                ],
+                'selectedEmployees' => $selectedEmployees,
+                'skipped' => [
+                    'counts' => [
+                        'onLeave' => count($employeesOnLeave),
+                        'existingAttendance' => count($employeesWithAttendance),
+                    ],
+                    'onLeave' => $employeesOnLeave,
+                    'existingAttendance' => $employeesWithAttendance,
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @param array{
+     *     date: string,
+     *     employee_ids: array<int, int>,
+     *     check_in_time?: string|null,
+     *     check_out_time?: string|null,
+     *     notes?: string|null
+     * } $data
+     * @return array{message: string, data: array<string, mixed>}
+     */
+    public function outageRecoveryApply(?User $authenticatedUser, array $data): array
+    {
+        $authenticatedUser = $this->ensureHrOperator($authenticatedUser);
+
+        return DB::transaction(function () use ($authenticatedUser, $data): array {
+            $date = Carbon::parse($data['date'])->startOfDay();
+            $employeeIds = array_values(array_unique(array_map('intval', $data['employee_ids'])));
+            $hasExplicitCheckInTime = array_key_exists('check_in_time', $data);
+            $hasExplicitCheckOutTime = array_key_exists('check_out_time', $data);
+            $checkIn = $hasExplicitCheckInTime
+                ? $this->parseDateTime($data['check_in_time'])
+                : $this->workStart($date);
+            $checkOut = $hasExplicitCheckOutTime
+                ? $this->parseDateTime($data['check_out_time'])
+                : ($hasExplicitCheckInTime ? null : $this->workEnd($date));
+            $notes = $data['notes'] ?? $this->outageRecoveryDefaultNotes();
+
+            $this->assertAttendanceDateMatches($date, $checkIn, $checkOut);
+            $this->assertValidTimeOrder($checkIn, $checkOut);
+            $this->assertNotFutureAttendanceTimes($checkIn, $checkOut);
+
+            $eligibleEmployees = $this->outageRecoveryCandidateQuery($date)
+                ->whereIn('id', $employeeIds)
+                ->lockForUpdate()
+                ->get();
+
+            if ($eligibleEmployees->count() !== count($employeeIds)) {
+                throw ValidationException::withMessages([
+                    'employee_ids' => ['Some selected employees are no longer eligible for outage recovery attendance. Refresh the preview and try again.'],
+                ]);
+            }
+
+            $payload = $this->buildAttendancePayload(
+                attendanceDate: $date,
+                checkIn: $checkIn,
+                checkOut: $checkOut,
+            );
+
+            $createdAttendances = [];
+
+            foreach ($eligibleEmployees as $employee) {
+                $existingAttendance = Attendance::query()
+                    ->where('employee_id', $employee->id)
+                    ->whereDate('attendance_date', $date->toDateString())
+                    ->lockForUpdate()
+                    ->exists();
+
+                if ($existingAttendance) {
+                    throw ValidationException::withMessages([
+                        'employee_ids' => ['Some selected employees already have attendance for this date. Refresh the preview and try again.'],
+                    ]);
+                }
+
+                $createdAttendances[] = Attendance::query()->create([
+                    'employee_id' => $employee->id,
+                    'edited_by' => $authenticatedUser->id,
+                    'created_by' => $authenticatedUser->id,
+                    'updated_by' => $authenticatedUser->id,
+                    'attendance_date' => $date->toDateString(),
+                    'check_in' => $checkIn,
+                    'check_out' => $checkOut,
+                    ...$payload,
+                    'source' => AttendanceSource::Manual,
+                    'notes' => $notes,
+                ]);
+            }
+
+            $this->auditLogService->log(
+                logName: 'attendance',
+                event: 'outage_recovery_applied',
+                description: 'attendance.outage_recovery_applied',
+                causer: $authenticatedUser,
+                properties: [
+                    'date' => $date->toDateString(),
+                    'employee_ids' => $employeeIds,
+                    'created_count' => count($createdAttendances),
+                    'notes' => $notes,
+                ],
+            );
+
+            return [
+                'message' => 'Outage recovery attendance created successfully.',
+                'data' => [
+                    'date' => $date->toDateString(),
+                    'createdCount' => count($createdAttendances),
+                    'notes' => $notes,
+                    'employees' => $eligibleEmployees
+                        ->loadMissing(['department', 'currentPosition'])
+                        ->map(fn (Employee $employee): array => $this->transformOutageRecoveryEmployee($employee, true))
+                        ->values()
+                        ->all(),
+                ],
+            ];
+        });
+    }
+
+    /**
      * @param array{
      *     employee_id?: int,
      *     status?: string,
@@ -644,7 +885,7 @@ class AttendanceService
     }
 
     /**
-     * @param array{status: string, review_note?: string|null} $data
+     * @param  array{status: string, review_note?: string|null}  $data
      * @return array{message: string, data: array<string, mixed>}
      */
     public function reviewCorrectionRequest(
@@ -704,12 +945,57 @@ class AttendanceService
 
                     $attendance->save();
                 }
+            } elseif ($data['status'] === AttendanceCorrectionRequestStatus::Approved) {
+                $attendanceDate = $this->correctionRequestAttendanceDate($lockedCorrectionRequest);
+
+                $this->assertNoAttendanceExistsForDate($lockedCorrectionRequest->employee_id, $attendanceDate);
+
+                $payload = $this->buildAttendancePayload(
+                    attendanceDate: $attendanceDate,
+                    checkIn: $lockedCorrectionRequest->requested_check_in_time,
+                    checkOut: $lockedCorrectionRequest->requested_check_out_time,
+                    markAsCorrected: true,
+                );
+
+                $createdAttendance = Attendance::query()->create([
+                    'employee_id' => $lockedCorrectionRequest->employee_id,
+                    'edited_by' => $authenticatedUser->id,
+                    'created_by' => $authenticatedUser->id,
+                    'updated_by' => $authenticatedUser->id,
+                    'corrected_by' => $authenticatedUser->id,
+                    'attendance_date' => $attendanceDate->toDateString(),
+                    'check_in' => $lockedCorrectionRequest->requested_check_in_time,
+                    'check_out' => $lockedCorrectionRequest->requested_check_out_time,
+                    'source' => AttendanceSource::Correction,
+                    'correction_reason' => $lockedCorrectionRequest->reason,
+                    ...$payload,
+                ]);
+
+                $lockedCorrectionRequest->forceFill([
+                    'attendance_id' => $createdAttendance->id,
+                ])->save();
             }
+
+            $lockedCorrectionRequest = $lockedCorrectionRequest->fresh(['attendance.employee.department', 'employee.department', 'reviewer']);
+
+            $this->auditLogService->log(
+                logName: 'attendance',
+                event: 'correction_reviewed',
+                description: 'attendance.correction_reviewed',
+                causer: $authenticatedUser,
+                subject: $lockedCorrectionRequest,
+                properties: [
+                    'attendance_id' => $lockedCorrectionRequest?->attendance_id,
+                    'employee_id' => $lockedCorrectionRequest?->employee_id,
+                    'status' => $lockedCorrectionRequest?->status,
+                    'reviewed_at' => $lockedCorrectionRequest?->reviewed_at?->toIso8601String(),
+                ],
+            );
 
             return [
                 'message' => 'Attendance correction request reviewed successfully.',
                 'data' => $this->transformCorrectionRequest(
-                    $lockedCorrectionRequest->fresh(['attendance.employee.department', 'employee.department', 'reviewer'])
+                    $lockedCorrectionRequest
                 ),
             ];
         });
@@ -811,26 +1097,11 @@ class AttendanceService
     }
 
     /**
-     * @param array<int, string> $roles
+     * @param  array<int, string>  $roles
      */
     private function hasAnyRole(User $user, array $roles): bool
     {
         return $user->loadMissing('roles')->roles->pluck('name')->intersect($roles)->isNotEmpty();
-    }
-
-    private function validateScanToken(?string $scanToken): void
-    {
-        $expectedScanToken = config('attendance.scan_token');
-
-        if (! is_string($expectedScanToken) || $expectedScanToken === '') {
-            return;
-        }
-
-        if (! is_string($scanToken) || ! hash_equals($expectedScanToken, $scanToken)) {
-            throw ValidationException::withMessages([
-                'scan_token' => ['The provided scan token is invalid.'],
-            ]);
-        }
     }
 
     /**
@@ -905,6 +1176,7 @@ class AttendanceService
     private function applyAttendanceStatusFilter(Builder $query, string $status): Builder
     {
         return match ($status) {
+            AttendanceStatus::CheckedIn => $query->whereNotNull('check_in')->whereNull('check_out'),
             AttendanceStatus::CheckedOut => $query->whereNotNull('check_in')->whereNotNull('check_out'),
             AttendanceStatus::NotCheckedIn => $query->where('status', AttendanceStatus::Absent),
             default => $query->where('status', $status),
@@ -912,10 +1184,157 @@ class AttendanceService
     }
 
     /**
+     * @return array{message: string, data: array<string, mixed>}
+     */
+    private function performCheckIn(User $authenticatedUser, Employee $employee, string $source): array
+    {
+        return DB::transaction(function () use ($authenticatedUser, $employee, $source): array {
+            $timestamp = now();
+
+            /** @var Attendance|null $attendance */
+            $attendance = Attendance::query()
+                ->where('employee_id', $employee->id)
+                ->whereDate('attendance_date', $timestamp->toDateString())
+                ->lockForUpdate()
+                ->first();
+
+            if ($attendance !== null && $attendance->check_in !== null) {
+                throw ValidationException::withMessages([
+                    'attendance' => ['You have already checked in for today.'],
+                ]);
+            }
+
+            $payload = $this->buildAttendancePayload(
+                attendanceDate: $timestamp,
+                checkIn: $timestamp,
+                checkOut: null,
+            );
+
+            if ($attendance === null) {
+                $attendance = Attendance::query()->create([
+                    'employee_id' => $employee->id,
+                    'edited_by' => $authenticatedUser->id,
+                    'created_by' => $authenticatedUser->id,
+                    'updated_by' => $authenticatedUser->id,
+                    'attendance_date' => $timestamp->toDateString(),
+                    'check_in' => $timestamp,
+                    'check_out' => null,
+                    ...$payload,
+                    'source' => $source,
+                ]);
+            } else {
+                $attendance->forceFill([
+                    'edited_by' => $authenticatedUser->id,
+                    'updated_by' => $authenticatedUser->id,
+                    'check_in' => $timestamp,
+                    'check_out' => null,
+                    ...$payload,
+                    'source' => $source,
+                ])->save();
+            }
+
+            $attendance = $attendance->fresh(['employee.department']);
+
+            $this->auditLogService->log(
+                logName: 'attendance',
+                event: 'check_in',
+                description: 'attendance.check_in',
+                causer: $authenticatedUser,
+                subject: $attendance,
+                properties: [
+                    'employee_id' => $employee->id,
+                    'attendance_date' => $timestamp->toDateString(),
+                    'status' => $attendance?->status,
+                    'source' => $attendance?->source,
+                ],
+            );
+
+            return [
+                'message' => 'Check-in recorded successfully.',
+                'data' => $this->transformAttendance(
+                    $attendance,
+                    includeEmployee: false,
+                    includeAudit: false,
+                ),
+            ];
+        });
+    }
+
+    /**
+     * @return array{message: string, data: array<string, mixed>}
+     */
+    private function performCheckOut(User $authenticatedUser, Employee $employee, string $source): array
+    {
+        return DB::transaction(function () use ($authenticatedUser, $employee, $source): array {
+            $timestamp = now();
+
+            /** @var Attendance|null $attendance */
+            $attendance = Attendance::query()
+                ->where('employee_id', $employee->id)
+                ->whereDate('attendance_date', $timestamp->toDateString())
+                ->lockForUpdate()
+                ->first();
+
+            if ($attendance === null || $attendance->check_in === null) {
+                throw ValidationException::withMessages([
+                    'attendance' => ['You must check in before checking out.'],
+                ]);
+            }
+
+            if ($attendance->check_out !== null) {
+                throw ValidationException::withMessages([
+                    'attendance' => ['You have already checked out for today.'],
+                ]);
+            }
+
+            $payload = $this->buildAttendancePayload(
+                attendanceDate: Carbon::parse($attendance->attendance_date),
+                checkIn: Carbon::parse($attendance->check_in),
+                checkOut: $timestamp,
+            );
+
+            $attendance->forceFill([
+                'edited_by' => $authenticatedUser->id,
+                'updated_by' => $authenticatedUser->id,
+                'check_out' => $timestamp,
+                ...$payload,
+                'source' => $source,
+            ])->save();
+
+            $attendance = $attendance->fresh(['employee.department']);
+
+            $this->auditLogService->log(
+                logName: 'attendance',
+                event: 'check_out',
+                description: 'attendance.check_out',
+                causer: $authenticatedUser,
+                subject: $attendance,
+                properties: [
+                    'employee_id' => $employee->id,
+                    'attendance_date' => $timestamp->toDateString(),
+                    'status' => $attendance?->status,
+                    'worked_minutes' => $attendance?->worked_minutes,
+                    'source' => $attendance?->source,
+                ],
+            );
+
+            return [
+                'message' => 'Check-out recorded successfully.',
+                'data' => $this->transformAttendance(
+                    $attendance,
+                    includeEmployee: false,
+                    includeAudit: false,
+                ),
+            ];
+        });
+    }
+
+    /**
      * @return array{
      *     worked_minutes: int,
      *     late_minutes: int,
      *     early_leave_minutes: int,
+     *     overtime_minutes: int,
      *     status: string,
      *     correction_status: string
      * }
@@ -940,6 +1359,7 @@ class AttendanceService
                 'worked_minutes' => 0,
                 'late_minutes' => 0,
                 'early_leave_minutes' => 0,
+                'overtime_minutes' => 0,
                 'status' => AttendanceStatus::Absent,
                 'correction_status' => $markAsCorrected
                     ? AttendanceCorrectionRequestStatus::Approved
@@ -958,6 +1378,7 @@ class AttendanceService
                 'worked_minutes' => 0,
                 'late_minutes' => $this->lateMinutes($attendanceDate, $checkIn),
                 'early_leave_minutes' => 0,
+                'overtime_minutes' => 0,
                 'status' => $markAsCorrected ? AttendanceStatus::Corrected : AttendanceStatus::CheckedIn,
                 'correction_status' => $markAsCorrected
                     ? AttendanceCorrectionRequestStatus::Approved
@@ -966,13 +1387,15 @@ class AttendanceService
         }
 
         $workedMinutes = $checkIn->diffInMinutes($checkOut);
-        $lateMinutes = $this->lateMinutes($attendanceDate, $checkIn);
+        $overtimeMinutes = $this->overtimeMinutes($attendanceDate, $checkOut);
+        $lateMinutes = $this->netLateMinutes($attendanceDate, $checkIn, $checkOut, $overtimeMinutes);
         $earlyLeaveMinutes = $this->earlyLeaveMinutes($attendanceDate, $checkOut);
 
         return [
             'worked_minutes' => $workedMinutes,
             'late_minutes' => $lateMinutes,
             'early_leave_minutes' => $earlyLeaveMinutes,
+            'overtime_minutes' => $overtimeMinutes,
             'status' => $markAsCorrected
                 ? AttendanceStatus::Corrected
                 : ($lateMinutes > 0 ? AttendanceStatus::Late : AttendanceStatus::Present),
@@ -1024,6 +1447,77 @@ class AttendanceService
         }
     }
 
+    private function assertNotFutureAttendanceTimes(
+        ?CarbonInterface $checkIn,
+        ?CarbonInterface $checkOut,
+    ): void {
+        $currentTime = now();
+
+        if ($checkIn !== null && $checkIn->gt($currentTime)) {
+            throw ValidationException::withMessages([
+                'check_in_time' => ['Check-in time cannot be in the future.'],
+            ]);
+        }
+
+        if ($checkOut !== null && $checkOut->gt($currentTime)) {
+            throw ValidationException::withMessages([
+                'check_out_time' => ['Check-out time cannot be in the future.'],
+            ]);
+        }
+    }
+
+    private function assertNoAttendanceExistsForDate(int $employeeId, CarbonInterface $attendanceDate): void
+    {
+        $alreadyExists = Attendance::query()
+            ->where('employee_id', $employeeId)
+            ->whereDate('attendance_date', $attendanceDate->toDateString())
+            ->exists();
+
+        if ($alreadyExists) {
+            throw ValidationException::withMessages([
+                'attendance_date' => ['An attendance record already exists for this date. Please use the correction request endpoint instead.'],
+            ]);
+        }
+    }
+
+    private function assertNoOpenMissingAttendanceRequest(int $employeeId, CarbonInterface $attendanceDate): void
+    {
+        $existingRequest = AttendanceCorrectionRequest::query()
+            ->where('employee_id', $employeeId)
+            ->whereIn('status', [
+                AttendanceCorrectionRequestStatus::Pending,
+                AttendanceCorrectionRequestStatus::Approved,
+            ])
+            ->whereNull('attendance_id')
+            ->where(function (Builder $query) use ($attendanceDate): void {
+                $date = $attendanceDate->toDateString();
+
+                $query->whereDate('requested_check_in_time', $date)
+                    ->orWhereDate('requested_check_out_time', $date);
+            })
+            ->exists();
+
+        if ($existingRequest) {
+            throw ValidationException::withMessages([
+                'attendance_date' => ['A missing attendance request for this date already exists and can only be submitted again after rejection.'],
+            ]);
+        }
+    }
+
+    private function correctionRequestAttendanceDate(AttendanceCorrectionRequest $correctionRequest): Carbon
+    {
+        $attendanceDate = $correctionRequest->requested_check_in_time
+            ?? $correctionRequest->requested_check_out_time;
+
+        if (! $attendanceDate instanceof CarbonInterface) {
+            throw ValidationException::withMessages([
+                'attendance_date' => ['Unable to determine the attendance date for this request.'],
+            ]);
+        }
+
+        return Carbon::parse($attendanceDate)->startOfDay();
+    }
+
     private function lateMinutes(CarbonInterface $attendanceDate, CarbonInterface $checkIn): int
     {
         $start = $this->workStart($attendanceDate);
@@ -1031,11 +1525,30 @@ class AttendanceService
         return $checkIn->gt($start) ? $start->diffInMinutes($checkIn) : 0;
     }
 
+    private function netLateMinutes(
+        CarbonInterface $attendanceDate,
+        CarbonInterface $checkIn,
+        CarbonInterface $checkOut,
+        ?int $overtimeMinutes = null,
+    ): int {
+        $lateMinutes = $this->lateMinutes($attendanceDate, $checkIn);
+        $overtimeCreditMinutes = $overtimeMinutes ?? $this->overtimeMinutes($attendanceDate, $checkOut);
+
+        return max($lateMinutes - $overtimeCreditMinutes, 0);
+    }
+
     private function earlyLeaveMinutes(CarbonInterface $attendanceDate, CarbonInterface $checkOut): int
     {
         $end = $this->workEnd($attendanceDate);
 
         return $checkOut->lt($end) ? $checkOut->diffInMinutes($end) : 0;
+    }
+
+    private function overtimeMinutes(CarbonInterface $attendanceDate, CarbonInterface $checkOut): int
+    {
+        $end = $this->workEnd($attendanceDate);
+
+        return $checkOut->gt($end) ? $end->diffInMinutes($checkOut) : 0;
     }
 
     private function workStart(CarbonInterface $attendanceDate): Carbon
@@ -1059,13 +1572,6 @@ class AttendanceService
         }
 
         return Carbon::parse($value);
-    }
-
-    private function resolveSelfServiceSource(?string $scanToken): string
-    {
-        return is_string($scanToken) && $scanToken !== ''
-            ? AttendanceSource::Scan
-            : AttendanceSource::SelfService;
     }
 
     private function deriveTodayAttendanceStatus(?Attendance $attendance): string
@@ -1095,7 +1601,8 @@ class AttendanceService
      *     presentDays: int,
      *     lateCount: int,
      *     absentCount: int,
-     *     workedMinutes: int
+     *     workedMinutes: int,
+     *     overtimeMinutes: int
      * }
      */
     private function employeeRangeSummary(Employee $employee, CarbonInterface $from, CarbonInterface $to): array
@@ -1115,6 +1622,7 @@ class AttendanceService
                 ->where('status', AttendanceStatus::Absent)
                 ->count(),
             'workedMinutes' => (int) ((clone $query)->sum('worked_minutes')),
+            'overtimeMinutes' => (int) ((clone $query)->sum('overtime_minutes')),
         ];
     }
 
@@ -1123,14 +1631,81 @@ class AttendanceService
         return Employee::query()->where('status', 'active');
     }
 
+    private function outageRecoveryCandidateQuery(CarbonInterface $date): Builder
+    {
+        return $this->activeEmployeesQuery()
+            ->whereDoesntHave('attendances', function (Builder $query) use ($date): void {
+                $query->whereDate('attendance_date', $date->toDateString());
+            })
+            ->whereDoesntHave('leaveRequests', function (Builder $query) use ($date): void {
+                $this->applyApprovedLeaveFilter($query, $date);
+            });
+    }
+
+    private function outageRecoveryEmployeesOnLeaveQuery(CarbonInterface $date): Builder
+    {
+        return $this->activeEmployeesQuery()
+            ->whereDoesntHave('attendances', function (Builder $query) use ($date): void {
+                $query->whereDate('attendance_date', $date->toDateString());
+            })
+            ->whereHas('leaveRequests', function (Builder $query) use ($date): void {
+                $this->applyApprovedLeaveFilter($query, $date);
+            });
+    }
+
+    private function outageRecoveryEmployeesWithAttendanceQuery(CarbonInterface $date): Builder
+    {
+        return $this->activeEmployeesQuery()
+            ->whereHas('attendances', function (Builder $query) use ($date): void {
+                $query->whereDate('attendance_date', $date->toDateString());
+            });
+    }
+
+    private function applyApprovedLeaveFilter(Builder $query, CarbonInterface $date): void
+    {
+        $query->where('status', 'hr_approved')
+            ->whereDate('start_date', '<=', $date->toDateString())
+            ->whereDate('end_date', '>=', $date->toDateString());
+    }
+
+    /**
+     * @param  array{search?: string, department_id?: int}  $filters
+     */
+    private function applyOutageRecoveryEmployeeFilters(Builder $query, array $filters): Builder
+    {
+        return $query
+            ->when(
+                filled($filters['search'] ?? null),
+                function (Builder $employeeQuery) use ($filters): void {
+                    $search = mb_strtolower(trim((string) $filters['search']));
+
+                    $employeeQuery->where(function (Builder $searchQuery) use ($search): void {
+                        $pattern = '%'.$search.'%';
+
+                        $searchQuery->whereRaw('LOWER(first_name) LIKE ?', [$pattern])
+                            ->orWhereRaw('LOWER(last_name) LIKE ?', [$pattern])
+                            ->orWhereRaw("LOWER(TRIM(first_name || ' ' || last_name)) LIKE ?", [$pattern])
+                            ->orWhereRaw('LOWER(employee_code) LIKE ?', [$pattern]);
+                    });
+                }
+            )
+            ->when(
+                isset($filters['department_id']),
+                fn (Builder $employeeQuery): Builder => $employeeQuery->where('department_id', $filters['department_id'])
+            );
+    }
+
+    private function outageRecoveryDefaultNotes(): string
+    {
+        return 'System outage recovery';
+    }
+
     private function employeesOnLeaveTodayCount(): int
     {
         return Employee::query()
             ->where('status', 'active')
             ->whereHas('leaveRequests', function (Builder $query): void {
-                $query->where('status', 'hr_approved')
-                    ->whereDate('start_date', '<=', today()->toDateString())
-                    ->whereDate('end_date', '>=', today()->toDateString());
+                $this->applyApprovedLeaveFilter($query, today());
             })
             ->count();
     }
@@ -1148,6 +1723,7 @@ class AttendanceService
      *     status: string,
      *     lateMinutes: int,
      *     earlyLeaveMinutes: int,
+     *     overtimeMinutes: int,
      *     source: string|null,
      *     notes: string|null,
      *     correctionReason: string|null,
@@ -1175,6 +1751,7 @@ class AttendanceService
             'status' => $attendance->status,
             'lateMinutes' => (int) $attendance->late_minutes,
             'earlyLeaveMinutes' => (int) $attendance->early_leave_minutes,
+            'overtimeMinutes' => (int) $attendance->overtime_minutes,
             'source' => $attendance->source,
             'notes' => $attendance->notes,
             'correctionReason' => $attendance->correction_reason,
@@ -1216,6 +1793,33 @@ class AttendanceService
     }
 
     /**
+     * @return array{
+     *     id: int,
+     *     employeeCode: string|null,
+     *     name: string,
+     *     department: string|null,
+     *     currentPosition: string|null,
+     *     selected: bool,
+     *     skipReason: string|null
+     * }
+     */
+    private function transformOutageRecoveryEmployee(
+        Employee $employee,
+        bool $selected,
+        ?string $skipReason = null,
+    ): array {
+        return [
+            'id' => $employee->id,
+            'employeeCode' => $employee->employee_code,
+            'name' => trim($employee->first_name.' '.$employee->last_name),
+            'department' => $employee->department?->name,
+            'currentPosition' => $employee->currentPosition?->title,
+            'selected' => $selected,
+            'skipReason' => $skipReason,
+        ];
+    }
+
+    /**
      * @return array{id: int, name: string}|null
      */
     private function transformActor(?User $user): ?array
@@ -1234,6 +1838,7 @@ class AttendanceService
      * @return array{
      *     id: int,
      *     attendanceId: int|null,
+     *     attendanceDate: string|null,
      *     employee: array{id: int, name: string, department: string|null}|null,
      *     requestedCheckInTime: string|null,
      *     requestedCheckOutTime: string|null,
@@ -1252,6 +1857,7 @@ class AttendanceService
         return [
             'id' => $correctionRequest->id,
             'attendanceId' => $correctionRequest->attendance_id,
+            'attendanceDate' => $this->correctionRequestAttendanceDateOrNull($correctionRequest),
             'employee' => $this->transformEmployee($correctionRequest->employee?->loadMissing('department')),
             'requestedCheckInTime' => $correctionRequest->requested_check_in_time?->toIso8601String(),
             'requestedCheckOutTime' => $correctionRequest->requested_check_out_time?->toIso8601String(),
@@ -1266,6 +1872,14 @@ class AttendanceService
                 ? $this->transformAttendance($correctionRequest->attendance, includeEmployee: true)
                 : null,
         ];
+    }
+
+    private function correctionRequestAttendanceDateOrNull(AttendanceCorrectionRequest $correctionRequest): ?string
+    {
+        return ($correctionRequest->attendance?->attendance_date instanceof CarbonInterface)
+            ? $correctionRequest->attendance->attendance_date->toDateString()
+            : ($correctionRequest->requested_check_in_time?->toDateString()
+                ?? $correctionRequest->requested_check_out_time?->toDateString());
     }
 
     private function formatTime(?CarbonInterface $dateTime): ?string

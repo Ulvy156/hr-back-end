@@ -1,0 +1,330 @@
+{
+  "info": {
+    "_postman_id": "d8b697ec-f0e9-4c2a-9a1e-admin-audit-api",
+    "name": "HR Back End - Admin Audit API",
+    "description": "Postman collection for admin-only system audit log APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api"
+    },
+    {
+      "key": "email",
+      "value": "alice.ceo@example.com"
+    },
+    {
+      "key": "password",
+      "value": "password"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "audit_log_id",
+      "value": "1"
+    },
+    {
+      "key": "keyword",
+      "value": ""
+    },
+    {
+      "key": "log_name",
+      "value": "attendance"
+    },
+    {
+      "key": "event",
+      "value": "check_in"
+    },
+    {
+      "key": "causer_id",
+      "value": "1"
+    },
+    {
+      "key": "subject_type",
+      "value": "App\\\\Models\\\\Attendance"
+    },
+    {
+      "key": "subject_id",
+      "value": "1"
+    },
+    {
+      "key": "from_date",
+      "value": "2026-04-01"
+    },
+    {
+      "key": "to_date",
+      "value": "2026-04-30"
+    },
+    {
+      "key": "per_page",
+      "value": "20"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data.access_token) {",
+                  "    pm.collectionVariables.set('access_token', data.access_token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Audit Logs",
+      "item": [
+        {
+          "name": "List Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/audit-logs?keyword={{keyword}}&log_name={{log_name}}&event={{event}}&causer_id={{causer_id}}&subject_type={{subject_type}}&subject_id={{subject_id}}&from_date={{from_date}}&to_date={{to_date}}&per_page={{per_page}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "audit-logs"
+              ],
+              "query": [
+                {
+                  "key": "keyword",
+                  "value": "{{keyword}}"
+                },
+                {
+                  "key": "log_name",
+                  "value": "{{log_name}}"
+                },
+                {
+                  "key": "event",
+                  "value": "{{event}}"
+                },
+                {
+                  "key": "causer_id",
+                  "value": "{{causer_id}}"
+                },
+                {
+                  "key": "subject_type",
+                  "value": "{{subject_type}}"
+                },
+                {
+                  "key": "subject_id",
+                  "value": "{{subject_id}}"
+                },
+                {
+                  "key": "from_date",
+                  "value": "{{from_date}}"
+                },
+                {
+                  "key": "to_date",
+                  "value": "{{to_date}}"
+                },
+                {
+                  "key": "per_page",
+                  "value": "{{per_page}}"
+                }
+              ]
+            },
+            "description": "Admin-only paginated system audit logs."
+          },
+          "response": [
+            {
+              "name": "Sample List Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/audit-logs"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"current_page\": 1,\n  \"data\": [\n    {\n      \"id\": 18,\n      \"logName\": \"attendance\",\n      \"event\": \"check_in\",\n      \"description\": \"attendance.check_in\",\n      \"batchUuid\": null,\n      \"createdAt\": \"2026-04-05T08:05:00+07:00\",\n      \"causer\": {\n        \"type\": \"App\\\\Models\\\\User\",\n        \"id\": 7,\n        \"name\": \"Emma Employee\",\n        \"email\": \"emma.employee@example.com\"\n      },\n      \"subject\": {\n        \"type\": \"App\\\\Models\\\\Attendance\",\n        \"id\": 42,\n        \"label\": \"Attendance #42 (2026-04-05)\"\n      },\n      \"changes\": {\n        \"attributes\": {\n          \"status\": \"checked_in\"\n        },\n        \"old\": []\n      },\n      \"metadata\": {\n        \"employee_id\": 7,\n        \"attendance_date\": \"2026-04-05\",\n        \"status\": \"checked_in\",\n        \"source\": \"self_service\"\n      }\n    }\n  ],\n  \"first_page_url\": \"http://localhost:8000/api/audit-logs?page=1\",\n  \"from\": 1,\n  \"last_page\": 1,\n  \"last_page_url\": \"http://localhost:8000/api/audit-logs?page=1\",\n  \"links\": [],\n  \"next_page_url\": null,\n  \"path\": \"http://localhost:8000/api/audit-logs\",\n  \"per_page\": 20,\n  \"prev_page_url\": null,\n  \"to\": 1,\n  \"total\": 1\n}"
+            }
+          ]
+        },
+        {
+          "name": "Show Audit Log Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/audit-logs/{{audit_log_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "audit-logs",
+                "{{audit_log_id}}"
+              ]
+            },
+            "description": "Admin-only single audit log detail."
+          },
+          "response": [
+            {
+              "name": "Sample Detail Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/audit-logs/{{audit_log_id}}"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"data\": {\n    \"id\": 18,\n    \"logName\": \"auth\",\n    \"event\": \"login\",\n    \"description\": \"auth.login\",\n    \"batchUuid\": null,\n    \"createdAt\": \"2026-04-05T07:55:00+07:00\",\n    \"causer\": {\n      \"type\": \"App\\\\Models\\\\User\",\n      \"id\": 1,\n      \"name\": \"Alice CEO\",\n      \"email\": \"alice.ceo@example.com\"\n    },\n    \"subject\": {\n      \"type\": \"App\\\\Models\\\\User\",\n      \"id\": 1,\n      \"label\": \"Alice CEO\"\n    },\n    \"changes\": {\n      \"attributes\": [],\n      \"old\": []\n    },\n    \"metadata\": {\n      \"auth_method\": \"password_grant\",\n      \"email\": \"alice.ceo@example.com\"\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Export Audit Logs Excel",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/audit-logs/export/excel?keyword={{keyword}}&log_name={{log_name}}&event={{event}}&causer_id={{causer_id}}&subject_type={{subject_type}}&subject_id={{subject_id}}&from_date={{from_date}}&to_date={{to_date}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "audit-logs",
+                "export",
+                "excel"
+              ],
+              "query": [
+                {
+                  "key": "keyword",
+                  "value": "{{keyword}}"
+                },
+                {
+                  "key": "log_name",
+                  "value": "{{log_name}}"
+                },
+                {
+                  "key": "event",
+                  "value": "{{event}}"
+                },
+                {
+                  "key": "causer_id",
+                  "value": "{{causer_id}}"
+                },
+                {
+                  "key": "subject_type",
+                  "value": "{{subject_type}}"
+                },
+                {
+                  "key": "subject_id",
+                  "value": "{{subject_id}}"
+                },
+                {
+                  "key": "from_date",
+                  "value": "{{from_date}}"
+                },
+                {
+                  "key": "to_date",
+                  "value": "{{to_date}}"
+                }
+              ]
+            },
+            "description": "Downloads an .xlsx file using the exact same filters as the audit log list API.\n\nSample file name: audit-logs-2026-04-05.xlsx"
+          }
+        }
+      ]
+    }
+  ]
+}

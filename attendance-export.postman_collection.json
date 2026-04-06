@@ -113,11 +113,12 @@
     {
       "name": "Attendance Export",
       "item": [
-        {
-          "name": "Export PDF By Month",
-          "request": {
-            "method": "GET",
-            "header": [
+    {
+      "name": "Export PDF By Month",
+      "request": {
+        "description": "Exports the filtered attendance report as PDF.\n\nThe exported rows now include overtime as an `OT` column and the summary includes `total_overtime_minutes`.",
+        "method": "GET",
+        "header": [
               {
                 "key": "Accept",
                 "value": "application/pdf"
@@ -154,11 +155,12 @@
             }
           }
         },
-        {
-          "name": "Export PDF By Date Range",
-          "request": {
-            "method": "GET",
-            "header": [
+    {
+      "name": "Export PDF By Date Range",
+      "request": {
+        "description": "Exports the filtered attendance report as PDF.\n\nThe exported rows now include overtime as an `OT` column and the summary includes `total_overtime_minutes`.",
+        "method": "GET",
+        "header": [
               {
                 "key": "Accept",
                 "value": "application/pdf"
@@ -199,11 +201,12 @@
             }
           }
         },
-        {
-          "name": "Export Excel By Month",
-          "request": {
-            "method": "GET",
-            "header": [
+    {
+      "name": "Export Excel By Month",
+      "request": {
+        "description": "Exports the filtered attendance report as Excel.\n\nThe worksheet now includes an `OT Minutes` column and the summary rows include `total_overtime_minutes`.",
+        "method": "GET",
+        "header": [
               {
                 "key": "Accept",
                 "value": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -240,11 +243,12 @@
             }
           }
         },
-        {
-          "name": "Export Excel By Date Range",
-          "request": {
-            "method": "GET",
-            "header": [
+    {
+      "name": "Export Excel By Date Range",
+      "request": {
+        "description": "Exports the filtered attendance report as Excel.\n\nThe worksheet now includes an `OT Minutes` column and the summary rows include `total_overtime_minutes`.",
+        "method": "GET",
+        "header": [
               {
                 "key": "Accept",
                 "value": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

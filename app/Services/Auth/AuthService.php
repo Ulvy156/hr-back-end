@@ -3,6 +3,7 @@
 namespace App\Services\Auth;
 
 use App\Models\User;
+use App\Services\AuditLogService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -15,7 +16,28 @@ use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 class AuthService
 {
     /**
-     * @param array{email: string, password: string} $credentials
+     * @var array<int, string>
+     */
+    private const PROFILE_RELATIONS = [
+        'roles',
+        'employee.department',
+        'employee.branch',
+        'employee.currentPosition',
+        'employee.shift',
+        'employee.manager',
+        'employee.educations',
+        'employee.emergencyContacts',
+        'employee.addresses.province',
+        'employee.addresses.district',
+        'employee.addresses.commune',
+        'employee.addresses.village',
+        'employee.employeePositions.position',
+    ];
+
+    public function __construct(private AuditLogService $auditLogService) {}
+
+    /**
+     * @param  array{email: string, password: string}  $credentials
      * @return array<string, mixed>
      */
     public function login(array $credentials): array
@@ -37,6 +59,18 @@ class AuthService
             'password' => $credentials['password'],
             'scope' => '',
         ]);
+
+        $this->auditLogService->log(
+            logName: 'auth',
+            event: 'login',
+            description: 'auth.login',
+            causer: $user,
+            subject: $user,
+            properties: [
+                'auth_method' => 'password_grant',
+                'email' => $user->email,
+            ],
+        );
 
         return [
             ...$tokenPayload,
@@ -69,6 +103,14 @@ class AuthService
 
         $token = $user->token();
 
+        $this->auditLogService->log(
+            logName: 'auth',
+            event: 'logout',
+            description: 'auth.logout',
+            causer: $user,
+            subject: $user,
+        );
+
         if ($token instanceof Token) {
             $token->refreshToken?->revoke();
             $token->revoke();
@@ -84,8 +126,17 @@ class AuthService
         return $user->load(['employee', 'roles']);
     }
 
+    public function profile(?User $user): User
+    {
+        if ($user === null) {
+            throw new UnauthorizedHttpException('Bearer', 'Unauthenticated.');
+        }
+
+        return $user->load(self::PROFILE_RELATIONS);
+    }
+
     /**
-     * @param array{current_password: string, new_password: string, new_password_confirmation: string} $data
+     * @param  array{current_password: string, new_password: string, new_password_confirmation: string}  $data
      * @return array<string, string>
      */
     public function changePassword(?User $user, array $data): array
@@ -101,6 +152,14 @@ class AuthService
         $user->forceFill([
             'password' => Hash::make($data['new_password']),
         ])->save();
+
+        $this->auditLogService->log(
+            logName: 'auth',
+            event: 'password_changed',
+            description: 'auth.password_changed',
+            causer: $user,
+            subject: $user,
+        );
 
         return [
             'message' => 'Password changed successfully.',
@@ -129,7 +188,7 @@ class AuthService
     /**
      * @return array<string, string>
      */
-    public function resetPassword(User $user, string $newPassword): array
+    public function resetPassword(?User $authenticatedUser, User $user, string $newPassword): array
     {
         DB::transaction(function () use ($user, $newPassword): void {
             $user->forceFill([
@@ -142,13 +201,24 @@ class AuthService
             });
         });
 
+        $this->auditLogService->log(
+            logName: 'auth',
+            event: 'password_reset',
+            description: 'auth.password_reset',
+            causer: $authenticatedUser,
+            subject: $user,
+            properties: [
+                'target_user_id' => $user->id,
+            ],
+        );
+
         return [
             'message' => 'Password reset successfully.',
         ];
     }
 
     /**
-     * @param array<string, string> $payload
+     * @param  array<string, string>  $payload
      * @return array<string, mixed>
      */
     private function issueToken(array $payload): array

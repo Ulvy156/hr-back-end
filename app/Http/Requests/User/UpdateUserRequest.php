@@ -3,6 +3,7 @@
 namespace App\Http\Requests\User;
 
 use App\Models\Employee;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -44,6 +45,8 @@ class UpdateUserRequest extends FormRequest
                         })
                 ),
             ],
+            'role_ids' => ['sometimes', 'array'],
+            'role_ids.*' => ['integer', 'distinct', Rule::exists(Role::class, 'id')],
         ];
     }
 }

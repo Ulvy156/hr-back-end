@@ -2,6 +2,7 @@
 
 namespace App\Services\Dashboard;
 
+use App\EmployeeStatus;
 use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
@@ -9,7 +10,6 @@ use App\Models\Role;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 
@@ -295,7 +295,7 @@ class DashboardService
                 'employee:id,department_id,first_name,last_name',
                 'employee.department:id,name',
             ])
-            ->whereHas('employee', fn (Builder $query): Builder => $query->where('status', 'active'))
+            ->whereHas('employee', fn (Builder $query): Builder => $query->where('status', EmployeeStatus::Active->value))
             ->orderByDesc('attendance_date')
             ->orderByDesc('check_in')
             ->limit((int) config('dashboard.workforce_recent_limit', 10))
@@ -376,14 +376,14 @@ class DashboardService
 
     private function activeEmployeesQuery(): Builder
     {
-        return Employee::query()->where('status', 'active');
+        return Employee::query()->where('status', EmployeeStatus::Active->value);
     }
 
     private function getEmployeesOnLeaveTodayCount(): int
     {
         return LeaveRequest::query()
             ->join('employees', 'employees.id', '=', 'leave_requests.employee_id')
-            ->where('employees.status', 'active')
+            ->where('employees.status', EmployeeStatus::Active->value)
             ->where('leave_requests.status', 'hr_approved')
             ->whereDate('leave_requests.start_date', '<=', today())
             ->whereDate('leave_requests.end_date', '>=', today())
@@ -395,7 +395,7 @@ class DashboardService
     {
         return Attendance::query()
             ->join('employees', 'employees.id', '=', 'attendances.employee_id')
-            ->where('employees.status', 'active')
+            ->where('employees.status', EmployeeStatus::Active->value)
             ->whereDate('attendances.attendance_date', today());
     }
 
@@ -418,7 +418,6 @@ class DashboardService
             Carbon::parse($attendance->attendance_date)->setTimeFromTimeString((string) config('dashboard.work_start_time', '08:00:00'))
         );
     }
-
 
     private function formatTime(?Carbon $timestamp): ?string
     {

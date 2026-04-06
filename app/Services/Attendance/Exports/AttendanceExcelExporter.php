@@ -103,6 +103,7 @@ class AttendanceExcelExporter
                 'Status',
                 'Late Minutes',
                 'Early Leave Minutes',
+                'OT Minutes',
                 'Correction Status',
             ],
         );
@@ -120,6 +121,7 @@ class AttendanceExcelExporter
                 ['value' => $record['status'], 'style' => 0],
                 ['value' => $record['late_minutes'], 'style' => 0],
                 ['value' => $record['early_leave_minutes'], 'style' => 0],
+                ['value' => $record['overtime_minutes'], 'style' => 0],
                 ['value' => $record['correction_status'], 'style' => 0],
             ];
         }
@@ -128,7 +130,7 @@ class AttendanceExcelExporter
     }
 
     /**
-     * @param array<int, array<int, array{value: string|int|float|null, style: int}>> $rows
+     * @param  array<int, array<int, array{value: string|int|float|null, style: int}>>  $rows
      */
     private function worksheetXml(array $rows): string
     {
@@ -159,9 +161,6 @@ class AttendanceExcelExporter
 XML;
     }
 
-    /**
-     * @param string|int|float|null $value
-     */
     private function cellXml(int $row, int $column, string|int|float|null $value, int $style): string
     {
         $reference = $this->columnName($column).$row;

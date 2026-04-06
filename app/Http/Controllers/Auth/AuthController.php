@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\ChangePasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Resources\Auth\AuthProfileResource;
 use App\Models\User;
 use App\Services\Auth\AuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Validation\Rules\Password;
 use Symfony\Component\HttpFoundation\Cookie as CookieAlias;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -48,6 +50,15 @@ class AuthController extends Controller
         );
     }
 
+    public function profile(Request $request): JsonResponse
+    {
+        return response()->json(
+            AuthProfileResource::make(
+                $this->authService->profile($request->user('api'))
+            )
+        );
+    }
+
     public function changePassword(ChangePasswordRequest $request): JsonResponse
     {
         return response()->json(
@@ -69,16 +80,16 @@ class AuthController extends Controller
     public function resetPassword(Request $request, User $user): JsonResponse
     {
         $validated = $request->validate([
-            'new_password' => ['required', 'string', 'confirmed', \Illuminate\Validation\Rules\Password::defaults()],
+            'new_password' => ['required', 'string', 'confirmed', Password::defaults()],
         ]);
 
         return response()->json(
-            $this->authService->resetPassword($user, $validated['new_password'])
+            $this->authService->resetPassword($request->user('api'), $user, $validated['new_password'])
         );
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function respondWithRefreshTokenCookie(array $payload): JsonResponse
     {

@@ -11,7 +11,8 @@ Route::middleware([
     Route::get('export/excel', [AttendanceController::class, 'exportExcel']);
 });
 
-Route::middleware(['auth:api', 'role:employee'])->prefix('attendance')->group(function (): void {
+Route::middleware(['auth:api', 'role:employee,hr'])->prefix('attendance')->group(function (): void {
+    Route::post('scan', [AttendanceController::class, 'scan']);
     Route::post('check-in', [AttendanceController::class, 'checkIn']);
     Route::post('check-out', [AttendanceController::class, 'checkOut']);
     Route::prefix('me')->group(function (): void {
@@ -19,6 +20,7 @@ Route::middleware(['auth:api', 'role:employee'])->prefix('attendance')->group(fu
         Route::get('history', [AttendanceController::class, 'myHistory']);
         Route::get('summary', [AttendanceController::class, 'mySummary']);
         Route::post('correction-request', [AttendanceController::class, 'submitCorrectionRequest']);
+        Route::post('missing-request', [AttendanceController::class, 'submitMissingAttendanceRequest']);
     });
 });
 
@@ -32,6 +34,8 @@ Route::middleware(['auth:api', 'role:hr,admin'])->prefix('attendance')->group(fu
 
 Route::middleware(['auth:api', 'role:hr'])->prefix('attendance')->group(function (): void {
     Route::post('manual', [AttendanceController::class, 'storeManual']);
+    Route::get('outage-recovery/preview', [AttendanceController::class, 'outageRecoveryPreview']);
+    Route::post('outage-recovery/apply', [AttendanceController::class, 'outageRecoveryApply']);
     Route::patch('{attendance}/correct', [AttendanceController::class, 'correct']);
     Route::patch('correction-requests/{attendanceCorrectionRequest}', [AttendanceController::class, 'reviewCorrectionRequest']);
 });

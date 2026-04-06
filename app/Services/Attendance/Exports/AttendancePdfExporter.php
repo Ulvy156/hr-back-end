@@ -65,7 +65,7 @@ class AttendancePdfExporter
     }
 
     /**
-     * @param array<string, string|int|float|null> $record
+     * @param  array<string, string|int|float|null>  $record
      */
     private function tableRow(array $record): string
     {
@@ -79,6 +79,7 @@ class AttendancePdfExporter
             $this->fit((string) ($record['status'] ?? '--'), 10),
             $this->fit((string) ($record['late_minutes'] ?? 0), 4, false),
             $this->fit((string) ($record['early_leave_minutes'] ?? 0), 5, false),
+            $this->fit((string) ($record['overtime_minutes'] ?? 0), 4, false),
             $this->fit((string) ($record['correction_status'] ?? '--'), 10),
         ]);
     }
@@ -95,6 +96,7 @@ class AttendancePdfExporter
             $this->fit('Status', 10),
             $this->fit('Late', 4, false),
             $this->fit('Early', 5, false),
+            $this->fit('OT', 4, false),
             $this->fit('Correction', 10),
         ]);
     }
@@ -109,7 +111,7 @@ class AttendancePdfExporter
     }
 
     /**
-     * @param array<int, string> $lines
+     * @param  array<int, string>  $lines
      * @return array<int, array<int, string>>
      */
     private function paginateLines(array $lines): array
@@ -118,7 +120,7 @@ class AttendancePdfExporter
     }
 
     /**
-     * @param array<int, array<int, string>> $pages
+     * @param  array<int, array<int, string>>  $pages
      */
     private function pdfDocument(array $pages): string
     {
@@ -177,13 +179,13 @@ class AttendancePdfExporter
         $pdf .= sprintf("<< /Size %d /Root 1 0 R >>\n", $objectCount + 1);
         $pdf .= "startxref\n";
         $pdf .= $xrefOffset."\n";
-        $pdf .= "%%EOF";
+        $pdf .= '%%EOF';
 
         return $pdf;
     }
 
     /**
-     * @param array<int, string> $lines
+     * @param  array<int, string>  $lines
      */
     private function pageContent(array $lines): string
     {
@@ -197,7 +199,7 @@ class AttendancePdfExporter
             $content .= sprintf("(%s) Tj\n", $this->escapeText($line));
         }
 
-        $content .= "ET";
+        $content .= 'ET';
 
         return $content;
     }

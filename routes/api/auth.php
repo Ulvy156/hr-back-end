@@ -10,6 +10,7 @@ Route::prefix('auth')->group(function (): void {
 
     Route::middleware('auth:api')->group(function (): void {
         Route::post('logout', [AuthController::class, 'logout']);
+        Route::get('profile', [AuthController::class, 'profile']);
         Route::get('me', [AuthController::class, 'me']);
         Route::post('change-password', [AuthController::class, 'changePassword']);
     });
