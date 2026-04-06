@@ -491,7 +491,7 @@
     {
       "name": "Check Out",
       "request": {
-        "description": "Employee or HR self-service check-out.\n\nSample success response:\n{\n  \"message\": \"Check-out recorded successfully.\",\n  \"data\": {\n    \"id\": 42,\n    \"employeeId\": 7,\n    \"attendanceDate\": \"2026-04-05\",\n    \"checkInTime\": \"08:15:00\",\n    \"checkOutTime\": \"17:15:00\",\n    \"checkInAt\": \"2026-04-05T08:15:00+07:00\",\n    \"checkOutAt\": \"2026-04-05T17:15:00+07:00\",\n    \"workedMinutes\": 540,\n    \"status\": \"present\",\n    \"lateMinutes\": 0,\n    \"earlyLeaveMinutes\": 0,\n    \"overtimeMinutes\": 15,\n    \"source\": \"self_service\",\n    \"correctionReason\": null,\n    \"correctionStatus\": \"none\"\n  }\n}",
+        "description": "Employee or HR self-service check-out.\n\nSample success response:\n{\n  \"message\": \"Check-out recorded successfully.\",\n  \"data\": {\n    \"id\": 42,\n    \"employeeId\": 7,\n    \"attendanceDate\": \"2026-04-05\",\n    \"checkInTime\": \"08:15:00\",\n    \"checkOutTime\": \"17:15:00\",\n    \"checkInAt\": \"2026-04-05T08:15:00+07:00\",\n    \"checkOutAt\": \"2026-04-05T17:15:00+07:00\",\n    \"workedMinutes\": 480,\n    \"status\": \"present\",\n    \"lateMinutes\": 0,\n    \"earlyLeaveMinutes\": 0,\n    \"overtimeMinutes\": 15,\n    \"source\": \"self_service\",\n    \"correctionReason\": null,\n    \"correctionStatus\": \"none\"\n  }\n}",
         "method": "POST",
         "header": [
               {
@@ -522,7 +522,7 @@
     {
       "name": "My Today Attendance",
       "request": {
-        "description": "Returns the authenticated employee's attendance for today.\n\nSample response:\n{\n  \"data\": {\n    \"attendanceDate\": \"2026-04-05\",\n    \"todayAttendanceStatus\": \"checked_out\",\n    \"nextAction\": \"none\",\n    \"checkInTime\": \"08:15:00\",\n    \"checkOutTime\": \"17:15:00\",\n    \"workedMinutes\": 540,\n    \"lateMinutes\": 0,\n    \"earlyLeaveMinutes\": 0,\n    \"overtimeMinutes\": 15,\n    \"status\": \"present\",\n    \"source\": \"self_service\",\n    \"correctionStatus\": \"none\",\n    \"notes\": null\n  }\n}",
+        "description": "Returns the authenticated employee's attendance for today.\n\nSample response:\n{\n  \"data\": {\n    \"attendanceDate\": \"2026-04-05\",\n    \"todayAttendanceStatus\": \"checked_out\",\n    \"nextAction\": \"none\",\n    \"checkInTime\": \"08:15:00\",\n    \"checkOutTime\": \"17:15:00\",\n    \"workedMinutes\": 480,\n    \"lateMinutes\": 0,\n    \"earlyLeaveMinutes\": 0,\n    \"overtimeMinutes\": 15,\n    \"status\": \"present\",\n    \"source\": \"self_service\",\n    \"correctionStatus\": \"none\",\n    \"notes\": null\n  }\n}",
         "method": "GET",
         "header": [
               {
@@ -599,7 +599,7 @@
         {
       "name": "Submit Correction Request",
       "request": {
-        "description": "Submit a correction request for the authenticated employee's own attendance record.\n\nRules:\n- If the record already has a pending correction request, the API rejects the new request.\n- If the record was already approved, the API rejects the new request.\n- A new request is allowed again only when the previous correction request was rejected.\n\nSample success response:\n{\n  \"message\": \"Attendance correction request submitted successfully.\",\n  \"data\": {\n    \"id\": 15,\n    \"attendanceId\": 42,\n    \"employeeId\": 7,\n    \"requestedCheckInTime\": \"2026-04-03T08:00:00+07:00\",\n    \"requestedCheckOutTime\": \"2026-04-03T17:00:00+07:00\",\n    \"reason\": \"Scanner was delayed during entry.\",\n    \"status\": \"pending\"\n  }\n}\n\nSample validation error for an already approved attendance record:\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"attendance_id\": [\n      \"This attendance record has already been corrected and approved. A new correction request is only allowed after rejection.\"\n    ]\n  }\n}",
+        "description": "Submit a correction request for the authenticated employee's own attendance record.\n\nPayload uses a date plus time-only fields.\n\nRules:\n- `request_date` must match an existing attendance record for the authenticated employee.\n- `requested_check_in_time` and `requested_check_out_time` use `HH:MM` format.\n- At least one of the requested time fields is required.\n- If the record already has a pending correction request, the API rejects the new request.\n- If the record was already approved, the API rejects the new request.\n- A new request is allowed again only when the previous correction request was rejected.\n\nSample success response:\n{\n  \"message\": \"Attendance correction request submitted successfully.\",\n  \"data\": {\n    \"id\": 15,\n    \"attendanceId\": 42,\n    \"attendanceDate\": \"2026-04-03\",\n    \"requestDate\": \"2026-04-03\",\n    \"employee\": {\n      \"id\": 7,\n      \"name\": \"Emma Employee\",\n      \"department\": \"Operations\"\n    },\n    \"requestedCheckInTime\": \"08:00\",\n    \"requestedCheckOutTime\": \"17:00\",\n    \"reason\": \"Scanner was delayed during entry.\",\n    \"status\": \"pending\",\n    \"reviewNote\": null,\n    \"reviewedAt\": null,\n    \"reviewedBy\": null,\n    \"createdAt\": \"2026-04-05T09:00:00+07:00\",\n    \"updatedAt\": \"2026-04-05T09:00:00+07:00\",\n    \"attendance\": null\n  }\n}\n\nSample validation error for an already approved attendance record:\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"request_date\": [\n      \"This attendance record has already been corrected and approved. A new correction request is only allowed after rejection.\"\n    ]\n  }\n}",
         "method": "POST",
         "header": [
               {
@@ -613,7 +613,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"attendance_id\": {{attendance_id}},\n  \"requested_check_in_time\": \"2026-04-03T08:00:00+07:00\",\n  \"requested_check_out_time\": \"2026-04-03T17:00:00+07:00\",\n  \"reason\": \"Scanner was delayed during entry.\"\n}"
+              "raw": "{\n  \"request_date\": \"2026-04-03\",\n  \"requested_check_in_time\": \"08:00\",\n  \"requested_check_out_time\": \"17:00\",\n  \"reason\": \"Scanner was delayed during entry.\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/attendance/me/correction-request",
@@ -631,7 +631,7 @@
         {
           "name": "Submit Missing Attendance Request",
           "request": {
-            "description": "Submit a missing attendance request for a date where the authenticated employee has no attendance record yet.\n\nRules:\n- Use this when the employee forgot both check-in and check-out.\n- The API rejects the request if an attendance record already exists for that date.\n- A new missing request for the same date is blocked while a previous one is pending or already approved.\n- A new request is allowed again only when the previous missing request was rejected.\n\nSample success response:\n{\n  \"message\": \"Missing attendance request submitted successfully.\",\n  \"data\": {\n    \"id\": 16,\n    \"attendanceId\": null,\n    \"attendanceDate\": \"2026-04-04\",\n    \"employee\": {\n      \"id\": 7,\n      \"name\": \"Emma Employee\",\n      \"department\": \"Operations\"\n    },\n    \"requestedCheckInTime\": \"2026-04-04T08:00:00+07:00\",\n    \"requestedCheckOutTime\": \"2026-04-04T17:00:00+07:00\",\n    \"reason\": \"I forgot to check in and check out that day.\",\n    \"status\": \"pending\",\n    \"reviewNote\": null,\n    \"reviewedAt\": null,\n    \"reviewedBy\": null,\n    \"createdAt\": \"2026-04-05T09:00:00+07:00\",\n    \"updatedAt\": \"2026-04-05T09:00:00+07:00\",\n    \"attendance\": null\n  }\n}\n\nSample validation error for a duplicate approved/pending request:\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"attendance_date\": [\n      \"A missing attendance request for this date already exists and can only be submitted again after rejection.\"\n    ]\n  }\n}",
+            "description": "Submit a missing attendance request for a date where the authenticated employee has no attendance record yet.\n\nRules:\n- Use this when the employee forgot both check-in and check-out.\n- `request_date` identifies the attendance day.\n- `requested_check_in_time` and `requested_check_out_time` use `HH:MM` format.\n- At least one of the requested time fields is required.\n- The API rejects the request if an attendance record already exists for that date.\n- A new missing request for the same date is blocked while a previous one is pending or already approved.\n- A new request is allowed again only when the previous missing request was rejected.\n\nSample success response:\n{\n  \"message\": \"Missing attendance request submitted successfully.\",\n  \"data\": {\n    \"id\": 16,\n    \"attendanceId\": null,\n    \"attendanceDate\": \"2026-04-04\",\n    \"requestDate\": \"2026-04-04\",\n    \"employee\": {\n      \"id\": 7,\n      \"name\": \"Emma Employee\",\n      \"department\": \"Operations\"\n    },\n    \"requestedCheckInTime\": \"08:00\",\n    \"requestedCheckOutTime\": \"17:00\",\n    \"reason\": \"I forgot to check in and check out that day.\",\n    \"status\": \"pending\",\n    \"reviewNote\": null,\n    \"reviewedAt\": null,\n    \"reviewedBy\": null,\n    \"createdAt\": \"2026-04-05T09:00:00+07:00\",\n    \"updatedAt\": \"2026-04-05T09:00:00+07:00\",\n    \"attendance\": null\n  }\n}\n\nSample validation error for a duplicate approved/pending request:\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"request_date\": [\n      \"A missing attendance request for this date already exists and can only be submitted again after rejection.\"\n    ]\n  }\n}",
             "method": "POST",
             "header": [
               {
@@ -645,7 +645,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"attendance_date\": \"2026-04-04\",\n  \"requested_check_in_time\": \"2026-04-04T08:00:00+07:00\",\n  \"requested_check_out_time\": \"2026-04-04T17:00:00+07:00\",\n  \"reason\": \"I forgot to check in and check out that day.\"\n}"
+              "raw": "{\n  \"request_date\": \"2026-04-04\",\n  \"requested_check_in_time\": \"08:00\",\n  \"requested_check_out_time\": \"17:00\",\n  \"reason\": \"I forgot to check in and check out that day.\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/attendance/me/missing-request",
@@ -739,7 +739,7 @@
     {
       "name": "Create Manual Attendance",
       "request": {
-        "description": "Create or backfill attendance as HR.\n\nIf check-out extends past the configured work end time, the backend stores that extra time as `overtimeMinutes`.\n\nSample success response excerpt:\n{\n  \"message\": \"Attendance created successfully.\",\n  \"data\": {\n    \"workedMinutes\": 540,\n    \"lateMinutes\": 0,\n    \"earlyLeaveMinutes\": 0,\n    \"overtimeMinutes\": 15,\n    \"status\": \"present\",\n    \"source\": \"manual\"\n  }\n}",
+        "description": "Create or backfill attendance as HR.\n\nIf check-out extends past the configured work end time, the backend stores that extra time as `overtimeMinutes`, and `workedMinutes` excludes the configured break window.\n\nSample success response excerpt:\n{\n  \"message\": \"Attendance created successfully.\",\n  \"data\": {\n    \"workedMinutes\": 480,\n    \"lateMinutes\": 0,\n    \"earlyLeaveMinutes\": 0,\n    \"overtimeMinutes\": 15,\n    \"status\": \"present\",\n    \"source\": \"manual\"\n  }\n}",
         "method": "POST",
         "header": [
               {
@@ -753,7 +753,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"employee_id\": {{employee_id}},\n  \"attendance_date\": \"2026-04-03\",\n  \"check_in_time\": \"2026-04-03T08:15:00+07:00\",\n  \"check_out_time\": \"2026-04-03T17:00:00+07:00\",\n  \"notes\": \"Created by HR for late kiosk sync.\"\n}"
+              "raw": "{\n  \"employee_id\": {{employee_id}},\n  \"attendance_date\": \"2026-04-03\",\n  \"check_in_time\": \"2026-04-03T08:15:00+07:00\",\n  \"check_out_time\": \"2026-04-03T17:15:00+07:00\",\n  \"notes\": \"Created by HR for late kiosk sync.\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/attendance/manual",

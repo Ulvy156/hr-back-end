@@ -178,7 +178,7 @@ class AttendanceService
 
     /**
      * @param array{
-     *     attendance_id: int,
+     *     request_date: string,
      *     requested_check_in_time?: string|null,
      *     requested_check_out_time?: string|null,
      *     reason: string
@@ -191,29 +191,39 @@ class AttendanceService
         $employee = $this->ensureEmployeeProfile($authenticatedUser);
 
         return DB::transaction(function () use ($authenticatedUser, $employee, $data): array {
+            $requestDate = Carbon::createFromFormat('Y-m-d', $data['request_date'])->startOfDay();
+
             /** @var Attendance $attendance */
             $attendance = Attendance::query()
-                ->where('id', $data['attendance_id'])
                 ->where('employee_id', $employee->id)
+                ->whereDate('attendance_date', $requestDate->toDateString())
                 ->lockForUpdate()
-                ->firstOrFail();
+                ->first();
+
+            if (! $attendance instanceof Attendance) {
+                throw ValidationException::withMessages([
+                    'request_date' => ['No attendance record exists for this date. Use the missing attendance request endpoint instead.'],
+                ]);
+            }
 
             if ($attendance->correction_status === AttendanceCorrectionRequestStatus::Pending) {
                 throw ValidationException::withMessages([
-                    'attendance_id' => ['There is already a pending correction request for this attendance record.'],
+                    'request_date' => ['There is already a pending correction request for this attendance record.'],
                 ]);
             }
 
             if ($attendance->correction_status === AttendanceCorrectionRequestStatus::Approved) {
                 throw ValidationException::withMessages([
-                    'attendance_id' => ['This attendance record has already been corrected and approved. A new correction request is only allowed after rejection.'],
+                    'request_date' => ['This attendance record has already been corrected and approved. A new correction request is only allowed after rejection.'],
                 ]);
             }
 
-            $requestedCheckIn = $this->parseDateTime($data['requested_check_in_time'] ?? null);
-            $requestedCheckOut = $this->parseDateTime($data['requested_check_out_time'] ?? null);
+            $requestedCheckIn = $this->parseClockTimeOnDate($requestDate, $data['requested_check_in_time'] ?? null)
+                ?? $attendance->check_in;
+            $requestedCheckOut = $this->parseClockTimeOnDate($requestDate, $data['requested_check_out_time'] ?? null)
+                ?? $attendance->check_out;
 
-            $this->assertAttendanceDateMatches($attendance->attendance_date, $requestedCheckIn, $requestedCheckOut);
+            $this->assertAttendanceDateMatches($requestDate, $requestedCheckIn, $requestedCheckOut);
             $this->assertValidTimeOrder($requestedCheckIn, $requestedCheckOut);
 
             $correctionRequest = AttendanceCorrectionRequest::query()->create([
@@ -241,6 +251,7 @@ class AttendanceService
                 properties: [
                     'attendance_id' => $attendance->id,
                     'employee_id' => $employee->id,
+                    'request_date' => $requestDate->toDateString(),
                     'status' => $correctionRequest?->status,
                 ],
             );
@@ -256,7 +267,7 @@ class AttendanceService
 
     /**
      * @param array{
-     *     attendance_date: string,
+     *     request_date: string,
      *     requested_check_in_time?: string|null,
      *     requested_check_out_time?: string|null,
      *     reason: string
@@ -268,13 +279,13 @@ class AttendanceService
         $employee = $this->ensureEmployeeProfile($authenticatedUser);
 
         return DB::transaction(function () use ($authenticatedUser, $employee, $data): array {
-            $attendanceDate = Carbon::parse($data['attendance_date'])->startOfDay();
+            $attendanceDate = Carbon::createFromFormat('Y-m-d', $data['request_date'])->startOfDay();
 
-            $this->assertNoAttendanceExistsForDate($employee->id, $attendanceDate);
-            $this->assertNoOpenMissingAttendanceRequest($employee->id, $attendanceDate);
+            $this->assertNoAttendanceExistsForDate($employee->id, $attendanceDate, 'request_date');
+            $this->assertNoOpenMissingAttendanceRequest($employee->id, $attendanceDate, 'request_date');
 
-            $requestedCheckIn = $this->parseDateTime($data['requested_check_in_time'] ?? null);
-            $requestedCheckOut = $this->parseDateTime($data['requested_check_out_time'] ?? null);
+            $requestedCheckIn = $this->parseClockTimeOnDate($attendanceDate, $data['requested_check_in_time'] ?? null);
+            $requestedCheckOut = $this->parseClockTimeOnDate($attendanceDate, $data['requested_check_out_time'] ?? null);
 
             $this->assertAttendanceDateMatches($attendanceDate, $requestedCheckIn, $requestedCheckOut);
             $this->assertValidTimeOrder($requestedCheckIn, $requestedCheckOut);
@@ -298,7 +309,7 @@ class AttendanceService
                 subject: $correctionRequest,
                 properties: [
                     'employee_id' => $employee->id,
-                    'attendance_date' => $attendanceDate->toDateString(),
+                    'request_date' => $attendanceDate->toDateString(),
                     'status' => $correctionRequest?->status,
                 ],
             );
@@ -1191,6 +1202,8 @@ class AttendanceService
         return DB::transaction(function () use ($authenticatedUser, $employee, $source): array {
             $timestamp = now();
 
+            $this->assertEmployeeNotOnApprovedLeave($employee, $timestamp);
+
             /** @var Attendance|null $attendance */
             $attendance = Attendance::query()
                 ->where('employee_id', $employee->id)
@@ -1267,6 +1280,8 @@ class AttendanceService
     {
         return DB::transaction(function () use ($authenticatedUser, $employee, $source): array {
             $timestamp = now();
+
+            $this->assertEmployeeNotOnApprovedLeave($employee, $timestamp);
 
             /** @var Attendance|null $attendance */
             $attendance = Attendance::query()
@@ -1386,7 +1401,10 @@ class AttendanceService
             ];
         }
 
-        $workedMinutes = $checkIn->diffInMinutes($checkOut);
+        $workedMinutes = max(
+            $this->wholeMinutesBetween($checkIn, $checkOut) - $this->breakMinutes($attendanceDate, $checkIn, $checkOut),
+            0,
+        );
         $overtimeMinutes = $this->overtimeMinutes($attendanceDate, $checkOut);
         $lateMinutes = $this->netLateMinutes($attendanceDate, $checkIn, $checkOut, $overtimeMinutes);
         $earlyLeaveMinutes = $this->earlyLeaveMinutes($attendanceDate, $checkOut);
@@ -1466,8 +1484,11 @@ class AttendanceService
         }
     }
 
-    private function assertNoAttendanceExistsForDate(int $employeeId, CarbonInterface $attendanceDate): void
-    {
+    private function assertNoAttendanceExistsForDate(
+        int $employeeId,
+        CarbonInterface $attendanceDate,
+        string $field = 'attendance_date',
+    ): void {
         $alreadyExists = Attendance::query()
             ->where('employee_id', $employeeId)
             ->whereDate('attendance_date', $attendanceDate->toDateString())
@@ -1475,13 +1496,16 @@ class AttendanceService
 
         if ($alreadyExists) {
             throw ValidationException::withMessages([
-                'attendance_date' => ['An attendance record already exists for this date. Please use the correction request endpoint instead.'],
+                $field => ['An attendance record already exists for this date. Please use the correction request endpoint instead.'],
             ]);
         }
     }
 
-    private function assertNoOpenMissingAttendanceRequest(int $employeeId, CarbonInterface $attendanceDate): void
-    {
+    private function assertNoOpenMissingAttendanceRequest(
+        int $employeeId,
+        CarbonInterface $attendanceDate,
+        string $field = 'attendance_date',
+    ): void {
         $existingRequest = AttendanceCorrectionRequest::query()
             ->where('employee_id', $employeeId)
             ->whereIn('status', [
@@ -1499,7 +1523,7 @@ class AttendanceService
 
         if ($existingRequest) {
             throw ValidationException::withMessages([
-                'attendance_date' => ['A missing attendance request for this date already exists and can only be submitted again after rejection.'],
+                $field => ['A missing attendance request for this date already exists and can only be submitted again after rejection.'],
             ]);
         }
     }
@@ -1522,7 +1546,7 @@ class AttendanceService
     {
         $start = $this->workStart($attendanceDate);
 
-        return $checkIn->gt($start) ? $start->diffInMinutes($checkIn) : 0;
+        return $checkIn->gt($start) ? $this->wholeMinutesBetween($start, $checkIn) : 0;
     }
 
     private function netLateMinutes(
@@ -1541,14 +1565,14 @@ class AttendanceService
     {
         $end = $this->workEnd($attendanceDate);
 
-        return $checkOut->lt($end) ? $checkOut->diffInMinutes($end) : 0;
+        return $checkOut->lt($end) ? $this->wholeMinutesBetween($checkOut, $end) : 0;
     }
 
     private function overtimeMinutes(CarbonInterface $attendanceDate, CarbonInterface $checkOut): int
     {
         $end = $this->workEnd($attendanceDate);
 
-        return $checkOut->gt($end) ? $end->diffInMinutes($checkOut) : 0;
+        return $checkOut->gt($end) ? $this->wholeMinutesBetween($end, $checkOut) : 0;
     }
 
     private function workStart(CarbonInterface $attendanceDate): Carbon
@@ -1559,6 +1583,33 @@ class AttendanceService
     private function workEnd(CarbonInterface $attendanceDate): Carbon
     {
         return Carbon::parse($attendanceDate->toDateString().' '.config('attendance.work_end_time', '17:00:00'));
+    }
+
+    private function breakMinutes(
+        CarbonInterface $attendanceDate,
+        CarbonInterface $checkIn,
+        CarbonInterface $checkOut,
+    ): int {
+        $breakStart = Carbon::parse($attendanceDate->toDateString().' '.config('attendance.break_start_time', '12:00:00'));
+        $breakEnd = Carbon::parse($attendanceDate->toDateString().' '.config('attendance.break_end_time', '13:00:00'));
+
+        if ($breakEnd->lte($breakStart)) {
+            return 0;
+        }
+
+        $overlapStart = $checkIn->greaterThan($breakStart) ? $checkIn : $breakStart;
+        $overlapEnd = $checkOut->lessThan($breakEnd) ? $checkOut : $breakEnd;
+
+        if ($overlapEnd->lte($overlapStart)) {
+            return 0;
+        }
+
+        return $this->wholeMinutesBetween($overlapStart, $overlapEnd);
+    }
+
+    private function wholeMinutesBetween(CarbonInterface $start, CarbonInterface $end): int
+    {
+        return (int) floor(abs($start->diffInSeconds($end)) / 60);
     }
 
     private function parseDateTime(null|string|CarbonInterface $value): ?Carbon
@@ -1666,6 +1717,21 @@ class AttendanceService
         $query->where('status', 'hr_approved')
             ->whereDate('start_date', '<=', $date->toDateString())
             ->whereDate('end_date', '>=', $date->toDateString());
+    }
+
+    private function assertEmployeeNotOnApprovedLeave(Employee $employee, CarbonInterface $date): void
+    {
+        $isOnApprovedLeave = $employee->leaveRequests()
+            ->where(function (Builder $query) use ($date): void {
+                $this->applyApprovedLeaveFilter($query, $date);
+            })
+            ->exists();
+
+        if ($isOnApprovedLeave) {
+            throw ValidationException::withMessages([
+                'attendance' => ['You cannot record attendance while on approved leave.'],
+            ]);
+        }
     }
 
     /**
@@ -1839,6 +1905,7 @@ class AttendanceService
      *     id: int,
      *     attendanceId: int|null,
      *     attendanceDate: string|null,
+     *     requestDate: string|null,
      *     employee: array{id: int, name: string, department: string|null}|null,
      *     requestedCheckInTime: string|null,
      *     requestedCheckOutTime: string|null,
@@ -1858,9 +1925,10 @@ class AttendanceService
             'id' => $correctionRequest->id,
             'attendanceId' => $correctionRequest->attendance_id,
             'attendanceDate' => $this->correctionRequestAttendanceDateOrNull($correctionRequest),
+            'requestDate' => $this->correctionRequestAttendanceDateOrNull($correctionRequest),
             'employee' => $this->transformEmployee($correctionRequest->employee?->loadMissing('department')),
-            'requestedCheckInTime' => $correctionRequest->requested_check_in_time?->toIso8601String(),
-            'requestedCheckOutTime' => $correctionRequest->requested_check_out_time?->toIso8601String(),
+            'requestedCheckInTime' => $this->formatClockTime($correctionRequest->requested_check_in_time),
+            'requestedCheckOutTime' => $this->formatClockTime($correctionRequest->requested_check_out_time),
             'reason' => $correctionRequest->reason,
             'status' => $correctionRequest->status,
             'reviewNote' => $correctionRequest->review_note,
@@ -1885,5 +1953,19 @@ class AttendanceService
     private function formatTime(?CarbonInterface $dateTime): ?string
     {
         return $dateTime?->format('H:i:s');
+    }
+
+    private function formatClockTime(?CarbonInterface $dateTime): ?string
+    {
+        return $dateTime?->format('H:i');
+    }
+
+    private function parseClockTimeOnDate(CarbonInterface $date, ?string $time): ?Carbon
+    {
+        if (! is_string($time) || trim($time) === '') {
+            return null;
+        }
+
+        return Carbon::createFromFormat('Y-m-d H:i', $date->toDateString().' '.trim($time));
     }
 }

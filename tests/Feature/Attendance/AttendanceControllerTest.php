@@ -17,6 +17,8 @@ uses(RefreshDatabase::class);
 beforeEach(function (): void {
     config()->set('attendance.work_start_time', '08:00:00');
     config()->set('attendance.work_end_time', '17:00:00');
+    config()->set('attendance.break_start_time', '12:00:00');
+    config()->set('attendance.break_end_time', '13:00:00');
 });
 
 afterEach(function (): void {
@@ -51,15 +53,47 @@ it('allows an employee to check in and check out from self-service endpoints', f
         ->assertOk()
         ->assertJsonPath('message', 'Check-out recorded successfully.')
         ->assertJsonPath('data.status', 'present')
-        ->assertJsonPath('data.workedMinutes', 540)
+        ->assertJsonPath('data.workedMinutes', 480)
         ->assertJsonPath('data.overtimeMinutes', 0);
 
     $this->getJson('/api/attendance/me/today')
         ->assertOk()
         ->assertJsonPath('data.todayAttendanceStatus', 'checked_out')
         ->assertJsonPath('data.nextAction', 'none')
-        ->assertJsonPath('data.workedMinutes', 540)
+        ->assertJsonPath('data.workedMinutes', 480)
         ->assertJsonPath('data.overtimeMinutes', 0);
+});
+
+it('stores whole minutes when check-out timestamps include seconds', function () {
+    $employeeUser = createAttendanceUser('employee');
+
+    Passport::actingAs($employeeUser);
+
+    Carbon::setTestNow(now()->startOfDay()->setTime(8, 0, 0));
+
+    $this->postJson('/api/attendance/check-in')
+        ->assertCreated()
+        ->assertJsonPath('data.status', 'checked_in');
+
+    Carbon::setTestNow(now()->startOfDay()->setTime(16, 52, 20));
+
+    $response = $this->postJson('/api/attendance/check-out');
+
+    $response
+        ->assertOk()
+        ->assertJsonPath('data.status', 'present')
+        ->assertJsonPath('data.workedMinutes', 472)
+        ->assertJsonPath('data.earlyLeaveMinutes', 7)
+        ->assertJsonPath('data.overtimeMinutes', 0);
+
+    $attendance = Attendance::query()
+        ->where('employee_id', $employeeUser->employee->id)
+        ->whereDate('attendance_date', now()->toDateString())
+        ->firstOrFail();
+
+    expect($attendance->worked_minutes)->toBe(472)
+        ->and($attendance->early_leave_minutes)->toBe(7)
+        ->and($attendance->overtime_minutes)->toBe(0);
 });
 
 it('lets the scan endpoint auto check in then check out for authenticated employee users', function () {
@@ -82,7 +116,7 @@ it('lets the scan endpoint auto check in then check out for authenticated employ
         ->assertJsonPath('message', 'Check-out recorded successfully.')
         ->assertJsonPath('data.status', 'present')
         ->assertJsonPath('data.source', 'scan')
-        ->assertJsonPath('data.workedMinutes', 540);
+        ->assertJsonPath('data.workedMinutes', 480);
 });
 
 it('rejects scan when today attendance is already completed', function () {
@@ -132,7 +166,7 @@ it('offsets late minutes with overtime when an employee checks out after the sch
         ->assertJsonPath('data.status', 'present')
         ->assertJsonPath('data.lateMinutes', 0)
         ->assertJsonPath('data.overtimeMinutes', 15)
-        ->assertJsonPath('data.workedMinutes', 540);
+        ->assertJsonPath('data.workedMinutes', 480);
 
     $this->getJson('/api/attendance/me/today')
         ->assertOk()
@@ -159,6 +193,69 @@ it('allows hr to use self-service attendance endpoints for their own attendance'
         ->assertOk()
         ->assertJsonPath('data.todayAttendanceStatus', 'checked_in')
         ->assertJsonPath('data.nextAction', 'check_out');
+});
+
+it('blocks self-service check in when the employee is on approved leave for today', function () {
+    $employeeUser = createAttendanceUser('employee');
+
+    LeaveRequest::query()->create([
+        'employee_id' => $employeeUser->employee->id,
+        'type' => 'annual',
+        'start_date' => now()->toDateString(),
+        'end_date' => now()->toDateString(),
+        'manager_approved_by' => $employeeUser->employee->id,
+        'manager_approved_at' => now()->subDay(),
+        'hr_approved_by' => $employeeUser->employee->id,
+        'hr_approved_at' => now()->subDay(),
+        'status' => 'hr_approved',
+    ]);
+
+    Passport::actingAs($employeeUser);
+
+    $this->postJson('/api/attendance/check-in')
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['attendance'])
+        ->assertJsonPath('errors.attendance.0', 'You cannot record attendance while on approved leave.');
+});
+
+it('blocks self-service check out when the employee is on approved leave for today', function () {
+    $employeeUser = createAttendanceUser('employee');
+
+    Attendance::query()->create([
+        'employee_id' => $employeeUser->employee->id,
+        'edited_by' => $employeeUser->id,
+        'created_by' => $employeeUser->id,
+        'updated_by' => $employeeUser->id,
+        'attendance_date' => now()->toDateString(),
+        'check_in' => now()->setTime(8, 0),
+        'check_out' => null,
+        'worked_minutes' => 0,
+        'late_minutes' => 0,
+        'early_leave_minutes' => 0,
+        'overtime_minutes' => 0,
+        'status' => 'checked_in',
+        'source' => 'self_service',
+        'correction_status' => 'none',
+    ]);
+
+    LeaveRequest::query()->create([
+        'employee_id' => $employeeUser->employee->id,
+        'type' => 'annual',
+        'start_date' => now()->toDateString(),
+        'end_date' => now()->toDateString(),
+        'manager_approved_by' => $employeeUser->employee->id,
+        'manager_approved_at' => now()->subDay(),
+        'hr_approved_by' => $employeeUser->employee->id,
+        'hr_approved_at' => now()->subDay(),
+        'status' => 'hr_approved',
+    ]);
+
+    Passport::actingAs($employeeUser);
+
+    $this->postJson('/api/attendance/check-out')
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['attendance'])
+        ->assertJsonPath('errors.attendance.0', 'You cannot record attendance while on approved leave.');
 });
 
 it('keeps employee attendance history scoped to the authenticated employee', function () {
@@ -231,9 +328,9 @@ it('allows an employee to submit an attendance correction request for their own 
     Passport::actingAs($employeeUser);
 
     $response = $this->postJson('/api/attendance/me/correction-request', [
-        'attendance_id' => $attendance->id,
-        'requested_check_in_time' => now()->subDay()->setTime(8, 0)->toIso8601String(),
-        'requested_check_out_time' => now()->subDay()->setTime(17, 0)->toIso8601String(),
+        'request_date' => now()->subDay()->toDateString(),
+        'requested_check_in_time' => '08:00',
+        'requested_check_out_time' => '17:00',
         'reason' => 'Scanner was delayed during entry.',
     ]);
 
@@ -241,6 +338,9 @@ it('allows an employee to submit an attendance correction request for their own 
         ->assertCreated()
         ->assertJsonPath('message', 'Attendance correction request submitted successfully.')
         ->assertJsonPath('data.attendanceId', $attendance->id)
+        ->assertJsonPath('data.requestDate', now()->subDay()->toDateString())
+        ->assertJsonPath('data.requestedCheckInTime', '08:00')
+        ->assertJsonPath('data.requestedCheckOutTime', '17:00')
         ->assertJsonPath('data.status', 'pending');
 
     expect(AttendanceCorrectionRequest::query()->count())->toBe(1)
@@ -253,9 +353,9 @@ it('allows an employee to submit a missing attendance request for a date with no
     Passport::actingAs($employeeUser);
 
     $response = $this->postJson('/api/attendance/me/missing-request', [
-        'attendance_date' => now()->subDay()->toDateString(),
-        'requested_check_in_time' => now()->subDay()->setTime(8, 0)->toIso8601String(),
-        'requested_check_out_time' => now()->subDay()->setTime(17, 0)->toIso8601String(),
+        'request_date' => now()->subDay()->toDateString(),
+        'requested_check_in_time' => '08:00',
+        'requested_check_out_time' => '17:00',
         'reason' => 'I forgot to check in and check out that day.',
     ]);
 
@@ -263,7 +363,10 @@ it('allows an employee to submit a missing attendance request for a date with no
         ->assertCreated()
         ->assertJsonPath('message', 'Missing attendance request submitted successfully.')
         ->assertJsonPath('data.attendanceId', null)
+        ->assertJsonPath('data.requestDate', now()->subDay()->toDateString())
         ->assertJsonPath('data.attendanceDate', now()->subDay()->toDateString())
+        ->assertJsonPath('data.requestedCheckInTime', '08:00')
+        ->assertJsonPath('data.requestedCheckOutTime', '17:00')
         ->assertJsonPath('data.status', 'pending');
 
     expect(AttendanceCorrectionRequest::query()->count())->toBe(1)
@@ -288,15 +391,15 @@ it('rejects a duplicate missing attendance request for the same date unless the 
     Passport::actingAs($employeeUser);
 
     $this->postJson('/api/attendance/me/missing-request', [
-        'attendance_date' => now()->subDay()->toDateString(),
-        'requested_check_in_time' => now()->subDay()->setTime(8, 10)->toIso8601String(),
-        'requested_check_out_time' => now()->subDay()->setTime(17, 10)->toIso8601String(),
+        'request_date' => now()->subDay()->toDateString(),
+        'requested_check_in_time' => '08:10',
+        'requested_check_out_time' => '17:10',
         'reason' => 'Trying to submit another missing request.',
     ])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['attendance_date'])
+        ->assertJsonValidationErrors(['request_date'])
         ->assertJsonPath(
-            'errors.attendance_date.0',
+            'errors.request_date.0',
             'A missing attendance request for this date already exists and can only be submitted again after rejection.'
         );
 });
@@ -326,15 +429,15 @@ it('rejects a new correction request when the attendance record was already appr
     Passport::actingAs($employeeUser);
 
     $this->postJson('/api/attendance/me/correction-request', [
-        'attendance_id' => $attendance->id,
-        'requested_check_in_time' => now()->subDay()->setTime(8, 5)->toIso8601String(),
-        'requested_check_out_time' => now()->subDay()->setTime(17, 0)->toIso8601String(),
+        'request_date' => now()->subDay()->toDateString(),
+        'requested_check_in_time' => '08:05',
+        'requested_check_out_time' => '17:00',
         'reason' => 'Trying to submit another request after approval.',
     ])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['attendance_id'])
+        ->assertJsonValidationErrors(['request_date'])
         ->assertJsonPath(
-            'errors.attendance_id.0',
+            'errors.request_date.0',
             'This attendance record has already been corrected and approved. A new correction request is only allowed after rejection.'
         );
 });
@@ -375,13 +478,14 @@ it('allows a new correction request when the previous request for the attendance
     Passport::actingAs($employeeUser);
 
     $this->postJson('/api/attendance/me/correction-request', [
-        'attendance_id' => $attendance->id,
-        'requested_check_in_time' => now()->subDay()->setTime(8, 10)->toIso8601String(),
-        'requested_check_out_time' => now()->subDay()->setTime(17, 10)->toIso8601String(),
+        'request_date' => now()->subDay()->toDateString(),
+        'requested_check_in_time' => '08:10',
+        'requested_check_out_time' => '17:10',
         'reason' => 'Submitting a new request after rejection.',
     ])
         ->assertCreated()
         ->assertJsonPath('data.attendanceId', $attendance->id)
+        ->assertJsonPath('data.requestDate', now()->subDay()->toDateString())
         ->assertJsonPath('data.status', 'pending');
 
     expect($attendance->fresh()?->correction_status)->toBe('pending')
@@ -523,7 +627,7 @@ it('uses net late minutes for manual attendance when checkout overtime covers th
         ->assertJsonPath('data.lateMinutes', 0)
         ->assertJsonPath('data.overtimeMinutes', 15)
         ->assertJsonPath('data.earlyLeaveMinutes', 0)
-        ->assertJsonPath('data.workedMinutes', 540);
+        ->assertJsonPath('data.workedMinutes', 480);
 });
 
 it('previews outage recovery candidates with search, department filter, and pagination', function () {
@@ -661,7 +765,7 @@ it('allows hr to create open outage recovery attendance that the employee can ch
     $this->postJson('/api/attendance/check-out')
         ->assertOk()
         ->assertJsonPath('message', 'Check-out recorded successfully.')
-        ->assertJsonPath('data.workedMinutes', 510)
+        ->assertJsonPath('data.workedMinutes', 450)
         ->assertJsonPath('data.overtimeMinutes', 45)
         ->assertJsonPath('data.source', 'self_service');
 

@@ -16,6 +16,8 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             CambodiaLocationSeeder::class,
+            LeaveTypeSeeder::class,
+            PublicHolidaySeeder::class,
             HrmsDemoSeeder::class,
         ]);
     }
