@@ -1,3 +1,7 @@
+# PROJECT REQUIREMENTS (SOURCE OF TRUTH)
+# This document defines the business logic, features, and system behavior.
+# All implementations must follow this document strictly.
+
 # HR Management System
 
 ## Overview
