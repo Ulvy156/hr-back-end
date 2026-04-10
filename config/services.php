@@ -38,6 +38,7 @@ return [
     'passport' => [
         'password_client_id' => env('PASSPORT_PASSWORD_CLIENT_ID'),
         'password_client_secret' => env('PASSPORT_PASSWORD_CLIENT_SECRET'),
+        'password_client_name' => env('PASSPORT_PASSWORD_CLIENT_NAME', 'Seeder Test Password Client'),
         'refresh_cookie_name' => env('PASSPORT_REFRESH_COOKIE_NAME', 'refresh_token'),
         'refresh_cookie_lifetime' => (int) env('PASSPORT_REFRESH_COOKIE_LIFETIME', 10080),
         'refresh_cookie_path' => env('PASSPORT_REFRESH_COOKIE_PATH', '/'),

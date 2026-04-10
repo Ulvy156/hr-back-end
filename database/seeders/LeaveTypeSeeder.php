@@ -42,7 +42,7 @@ class LeaveTypeSeeder extends Seeder
                 'gender_restriction' => LeaveTypeGenderRestriction::None->value,
                 'min_service_days' => 365,
                 'max_days_per_request' => null,
-                'max_days_per_year' => null,
+                'max_days_per_year' => 18,
                 'is_active' => true,
                 'sort_order' => 10,
                 'metadata' => [
@@ -60,7 +60,7 @@ class LeaveTypeSeeder extends Seeder
                 'code' => LeaveTypeCode::Sick->value,
                 'name' => 'Sick Leave',
                 'description' => 'Sick leave. Support medical-certificate-based leave. Do not hard-code a fixed annual sick balance unless company policy requires it later.',
-                'is_paid' => false,
+                'is_paid' => true,
                 'requires_balance' => false,
                 'requires_attachment' => true,
                 'requires_medical_certificate' => true,
@@ -69,7 +69,7 @@ class LeaveTypeSeeder extends Seeder
                 'gender_restriction' => LeaveTypeGenderRestriction::None->value,
                 'min_service_days' => null,
                 'max_days_per_request' => null,
-                'max_days_per_year' => null,
+                'max_days_per_year' => 7,
                 'is_active' => true,
                 'sort_order' => 20,
                 'metadata' => [
@@ -81,7 +81,7 @@ class LeaveTypeSeeder extends Seeder
             [
                 'code' => LeaveTypeCode::Maternity->value,
                 'name' => 'Maternity Leave',
-                'description' => 'Maternity leave for 90 days. Keep backend ready for payroll-related treatment later.',
+                'description' => 'Maternity leave for 90 days per pregnancy, paid at 50 percent of salary.',
                 'is_paid' => true,
                 'requires_balance' => false,
                 'requires_attachment' => true,
@@ -91,12 +91,14 @@ class LeaveTypeSeeder extends Seeder
                 'gender_restriction' => LeaveTypeGenderRestriction::Female->value,
                 'min_service_days' => null,
                 'max_days_per_request' => 90,
-                'max_days_per_year' => null,
+                'max_days_per_year' => 90,
                 'is_active' => true,
                 'sort_order' => 30,
                 'metadata' => [
                     'law_defaults' => [
                         'duration_days' => 90,
+                        'duration_scope' => 'per_pregnancy',
+                        'salary_payment_percentage' => 50,
                     ],
                 ],
             ],
@@ -104,7 +106,7 @@ class LeaveTypeSeeder extends Seeder
                 'code' => LeaveTypeCode::Special->value,
                 'name' => 'Special Leave',
                 'description' => 'Special leave for immediate-family or personal events. Keep configurable because company policy may vary.',
-                'is_paid' => false,
+                'is_paid' => true,
                 'requires_balance' => false,
                 'requires_attachment' => false,
                 'requires_medical_certificate' => false,
@@ -113,7 +115,7 @@ class LeaveTypeSeeder extends Seeder
                 'gender_restriction' => LeaveTypeGenderRestriction::None->value,
                 'min_service_days' => null,
                 'max_days_per_request' => null,
-                'max_days_per_year' => null,
+                'max_days_per_year' => 7,
                 'is_active' => true,
                 'sort_order' => 40,
                 'metadata' => [
@@ -125,7 +127,7 @@ class LeaveTypeSeeder extends Seeder
             [
                 'code' => LeaveTypeCode::Unpaid->value,
                 'name' => 'Unpaid Leave',
-                'description' => 'Unpaid leave for cases where paid leave does not apply or balance is insufficient.',
+                'description' => 'Unpaid leave has no fixed annual cap by default under current policy. It is granted only after employee request and written employer approval through the manager-to-HR workflow, does not deduct from leave balance, and is tracked for history and audit purposes.',
                 'is_paid' => false,
                 'requires_balance' => false,
                 'requires_attachment' => false,
@@ -138,7 +140,14 @@ class LeaveTypeSeeder extends Seeder
                 'max_days_per_year' => null,
                 'is_active' => true,
                 'sort_order' => 50,
-                'metadata' => null,
+                'metadata' => [
+                    'policy_notes' => [
+                        'approval_required' => true,
+                        'approval_flow' => ['manager', 'hr'],
+                        'deducts_balance' => false,
+                        'history_only' => true,
+                    ],
+                ],
             ],
         ];
     }

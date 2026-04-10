@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\EmployeeGender;
+use App\EmploymentType;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeePosition;
@@ -10,210 +12,79 @@ use App\Models\Permission;
 use App\Models\Position;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\Leave\LeaveRequestStatus;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use RuntimeException;
 
 class HrmsDemoSeeder extends Seeder
 {
     private const DEFAULT_PASSWORD = 'password';
 
-    private const EXTRA_EMPLOYEE_COUNT = 50;
-
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
         DB::transaction(function (): void {
-            $this->syncPostgresSequences();
+            $this->purgeLegacyDemoEmployees();
+            $this->seedPasswordGrantClient();
 
             $departments = $this->seedDepartments();
             $positions = $this->seedPositions();
             $roles = $this->seedRolesAndPermissions();
+            $employees = $this->seedEmployees($departments, $positions, $roles);
 
-            $ceo = $this->upsertEmployeeWithUser(
-                user: [
-                    'name' => 'Alice CEO',
-                    'email' => 'alice.ceo@example.com',
-                ],
-                employee: [
-                    'department_id' => $departments['executive']->id,
-                    'current_position_id' => $positions['ceo']->id,
-                    'manager_id' => null,
-                    'first_name' => 'Alice',
-                    'last_name' => 'CEO',
-                    'email' => 'alice.ceo@example.com',
-                    'phone' => '+85510000001',
-                    'hire_date' => '2022-01-10',
-                    'status' => 'active',
-                ],
-                role: $roles['admin'],
-                baseSalary: '4500.00',
-            );
-
-            $hrManager = $this->upsertEmployeeWithUser(
-                user: [
-                    'name' => 'Helen HR',
-                    'email' => 'helen.hr@example.com',
-                ],
-                employee: [
-                    'department_id' => $departments['human_resources']->id,
-                    'current_position_id' => $positions['hr_manager']->id,
-                    'manager_id' => $ceo->id,
-                    'first_name' => 'Helen',
-                    'last_name' => 'HR',
-                    'email' => 'helen.hr@example.com',
-                    'phone' => '+85510000002',
-                    'hire_date' => '2022-03-15',
-                    'status' => 'active',
-                ],
-                role: $roles['hr'],
-                baseSalary: '1800.00',
-            );
-
-            $operationsManager = $this->upsertEmployeeWithUser(
-                user: [
-                    'name' => 'Mark Ops',
-                    'email' => 'mark.ops@example.com',
-                ],
-                employee: [
-                    'department_id' => $departments['operations']->id,
-                    'current_position_id' => $positions['operations_manager']->id,
-                    'manager_id' => $ceo->id,
-                    'first_name' => 'Mark',
-                    'last_name' => 'Ops',
-                    'email' => 'mark.ops@example.com',
-                    'phone' => '+85510000003',
-                    'hire_date' => '2022-05-01',
-                    'status' => 'active',
-                ],
-                role: $roles['manager'],
-                baseSalary: '1600.00',
-            );
-
-            $financeOfficer = $this->upsertEmployeeWithUser(
-                user: [
-                    'name' => 'Fiona Finance',
-                    'email' => 'fiona.finance@example.com',
-                ],
-                employee: [
-                    'department_id' => $departments['finance']->id,
-                    'current_position_id' => $positions['accountant']->id,
-                    'manager_id' => $ceo->id,
-                    'first_name' => 'Fiona',
-                    'last_name' => 'Finance',
-                    'email' => 'fiona.finance@example.com',
-                    'phone' => '+85510000004',
-                    'hire_date' => '2023-01-12',
-                    'status' => 'active',
-                ],
-                role: $roles['employee'],
-                baseSalary: '950.00',
-            );
-
-            $hrOfficer = $this->upsertEmployeeWithUser(
-                user: [
-                    'name' => 'Henry Recruiter',
-                    'email' => 'henry.hr@example.com',
-                ],
-                employee: [
-                    'department_id' => $departments['human_resources']->id,
-                    'current_position_id' => $positions['hr_officer']->id,
-                    'manager_id' => $hrManager->id,
-                    'first_name' => 'Henry',
-                    'last_name' => 'Recruiter',
-                    'email' => 'henry.hr@example.com',
-                    'phone' => '+85510000005',
-                    'hire_date' => '2023-02-20',
-                    'status' => 'active',
-                ],
-                role: $roles['hr'],
-                baseSalary: '900.00',
-            );
-
-            $employeeOne = $this->upsertEmployeeWithUser(
-                user: [
-                    'name' => 'Emma Employee',
-                    'email' => 'emma.employee@example.com',
-                ],
-                employee: [
-                    'department_id' => $departments['operations']->id,
-                    'current_position_id' => $positions['operations_staff']->id,
-                    'manager_id' => $operationsManager->id,
-                    'first_name' => 'Emma',
-                    'last_name' => 'Employee',
-                    'email' => 'emma.employee@example.com',
-                    'phone' => '+85510000006',
-                    'hire_date' => '2023-04-01',
-                    'status' => 'active',
-                ],
-                role: $roles['employee'],
-                baseSalary: '700.00',
-            );
-
-            $employeeTwo = $this->upsertEmployeeWithUser(
-                user: [
-                    'name' => 'Ethan Staff',
-                    'email' => 'ethan.staff@example.com',
-                ],
-                employee: [
-                    'department_id' => $departments['operations']->id,
-                    'current_position_id' => $positions['operations_staff']->id,
-                    'manager_id' => $operationsManager->id,
-                    'first_name' => 'Ethan',
-                    'last_name' => 'Staff',
-                    'email' => 'ethan.staff@example.com',
-                    'phone' => '+85510000007',
-                    'hire_date' => '2023-06-10',
-                    'status' => 'active',
-                ],
-                role: $roles['employee'],
-                baseSalary: '680.00',
-            );
-
-            $this->seedLeaveRequests(
-                employeeOne: $employeeOne,
-                employeeTwo: $employeeTwo,
-                operationsManager: $operationsManager,
-                hrManager: $hrManager,
-            );
-
-            $this->seedAdditionalEmployees(
-                departments: $departments,
-                positions: $positions,
-                role: $roles['employee'],
-                hrManager: $hrManager,
-                operationsManager: $operationsManager,
-                financeOfficer: $financeOfficer,
-            );
+            $this->seedLeaveWorkflowScenarios($employees);
         });
     }
 
-    private function syncPostgresSequences(): void
+    private function seedPasswordGrantClient(): void
     {
-        if (DB::getDriverName() !== 'pgsql') {
-            return;
+        $clientId = (string) config('services.passport.password_client_id');
+        $clientSecret = (string) config('services.passport.password_client_secret');
+        $clientName = (string) config('services.passport.password_client_name', 'Seeder Test Password Client');
+
+        if ($clientId === '' || $clientSecret === '') {
+            throw new RuntimeException('Passport password client credentials must be configured before seeding.');
         }
 
-        foreach ([
-            'users',
-            'employees',
-            'employee_positions',
-            'departments',
-            'positions',
-            'roles',
-            'permissions',
-            'user_roles',
-            'role_permissions',
-            'leave_requests',
-        ] as $table) {
-            $maxId = (int) DB::table($table)->max('id');
+        DB::table('oauth_clients')->updateOrInsert(
+            ['id' => $clientId],
+            [
+                'owner_type' => null,
+                'owner_id' => null,
+                'name' => $clientName,
+                'secret' => Hash::make($clientSecret),
+                'provider' => 'users',
+                'redirect_uris' => '[]',
+                'grant_types' => json_encode(['password', 'refresh_token'], JSON_THROW_ON_ERROR),
+                'revoked' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
+    }
 
-            DB::statement(
-                "SELECT setval(pg_get_serial_sequence('{$table}', 'id'), ".max($maxId, 1).', '.($maxId > 0 ? 'true' : 'false').')'
-            );
-        }
+    private function purgeLegacyDemoEmployees(): void
+    {
+        $legacyUsers = User::query()
+            ->where('email', 'like', 'demo.employee.%@example.com')
+            ->get();
+
+        $legacyUsers->each(function (User $user): void {
+            $employee = $user->employee;
+
+            if (! $employee instanceof Employee) {
+                $user->delete();
+
+                return;
+            }
+
+            LeaveRequest::query()->where('employee_id', $employee->id)->delete();
+            EmployeePosition::query()->where('employee_id', $employee->id)->delete();
+            $user->roles()->detach();
+            $employee->forceDelete();
+            $user->delete();
+        });
     }
 
     /**
@@ -256,11 +127,13 @@ class HrmsDemoSeeder extends Seeder
     {
         return [
             'ceo' => Position::query()->updateOrCreate(['title' => 'Chief Executive Officer']),
-            'hr_manager' => Position::query()->updateOrCreate(['title' => 'HR Manager']),
+            'director' => Position::query()->updateOrCreate(['title' => 'Director']),
+            'head_of_hr' => Position::query()->updateOrCreate(['title' => 'Head of HR']),
             'hr_officer' => Position::query()->updateOrCreate(['title' => 'HR Officer']),
             'operations_manager' => Position::query()->updateOrCreate(['title' => 'Operations Manager']),
+            'regional_manager' => Position::query()->updateOrCreate(['title' => 'Regional Manager']),
             'operations_staff' => Position::query()->updateOrCreate(['title' => 'Operations Staff']),
-            'accountant' => Position::query()->updateOrCreate(['title' => 'Accountant']),
+            'finance_officer' => Position::query()->updateOrCreate(['title' => 'Finance Officer']),
         ];
     }
 
@@ -290,9 +163,9 @@ class HrmsDemoSeeder extends Seeder
                 ['name' => 'approve_leave_as_manager'],
                 ['description' => 'Approve leave as line manager']
             ),
-            'approve_leave_as_hr' => Permission::query()->updateOrCreate(
-                ['name' => 'approve_leave_as_hr'],
-                ['description' => 'Approve leave as HR']
+            'leave_approve_hr' => Permission::query()->updateOrCreate(
+                ['name' => 'leave.approve.hr'],
+                ['description' => 'Approve leave at the HR authority stage']
             ),
             'view_payroll' => Permission::query()->updateOrCreate(
                 ['name' => 'view_payroll'],
@@ -313,6 +186,10 @@ class HrmsDemoSeeder extends Seeder
                 ['name' => 'hr'],
                 ['description' => 'Human resources staff']
             ),
+            'hr_approver' => Role::query()->updateOrCreate(
+                ['name' => 'hr_approver'],
+                ['description' => 'Users with HR leave approval authority']
+            ),
             'manager' => Role::query()->updateOrCreate(
                 ['name' => 'manager'],
                 ['description' => 'Department manager']
@@ -323,13 +200,21 @@ class HrmsDemoSeeder extends Seeder
             ),
         ];
 
-        $roles['admin']->permissions()->sync(collect($permissions)->pluck('id')->all());
+        $roles['admin']->permissions()->sync([
+            $permissions['manage_users']->id,
+            $permissions['manage_employees']->id,
+            $permissions['manage_departments']->id,
+            $permissions['manage_leave']->id,
+            $permissions['view_payroll']->id,
+            $permissions['manage_payroll']->id,
+        ]);
         $roles['hr']->permissions()->sync([
             $permissions['manage_employees']->id,
             $permissions['manage_leave']->id,
-            $permissions['approve_leave_as_hr']->id,
             $permissions['view_payroll']->id,
-            $permissions['manage_payroll']->id,
+        ]);
+        $roles['hr_approver']->permissions()->sync([
+            $permissions['leave_approve_hr']->id,
         ]);
         $roles['manager']->permissions()->sync([
             $permissions['approve_leave_as_manager']->id,
@@ -342,12 +227,398 @@ class HrmsDemoSeeder extends Seeder
         return $roles;
     }
 
-    private function upsertEmployeeWithUser(
-        array $user,
-        array $employee,
-        Role $role,
-        string $baseSalary,
-    ): Employee {
+    /**
+     * @param  array<string, Department>  $departments
+     * @param  array<string, Position>  $positions
+     * @param  array<string, Role>  $roles
+     * @return array<string, Employee>
+     */
+    private function seedEmployees(array $departments, array $positions, array $roles): array
+    {
+        $alice = $this->upsertEmployeeWithUser(
+            user: [
+                'name' => 'Alice CEO',
+                'email' => 'alice.ceo@example.com',
+            ],
+            employee: [
+                'employee_code' => 'EMP-ADMIN-001',
+                'department_id' => $departments['executive']->id,
+                'current_position_id' => $positions['ceo']->id,
+                'manager_id' => null,
+                'first_name' => 'Alice',
+                'last_name' => 'CEO',
+                'email' => 'alice.ceo@example.com',
+                'phone' => '+85510000001',
+                'hire_date' => '2022-01-10',
+                'employment_type' => EmploymentType::FullTime->value,
+                'confirmation_date' => '2022-01-10',
+                'gender' => EmployeeGender::Female->value,
+                'status' => 'active',
+            ],
+            roles: [$roles['admin']],
+            baseSalary: '4500.00',
+        );
+
+        $derek = $this->upsertEmployeeWithUser(
+            user: [
+                'name' => 'Derek Director',
+                'email' => 'derek.director@example.com',
+            ],
+            employee: [
+                'employee_code' => 'EMP-EXE-002',
+                'department_id' => $departments['executive']->id,
+                'current_position_id' => $positions['director']->id,
+                'manager_id' => $alice->id,
+                'first_name' => 'Derek',
+                'last_name' => 'Director',
+                'email' => 'derek.director@example.com',
+                'phone' => '+85510000010',
+                'hire_date' => '2022-02-01',
+                'employment_type' => EmploymentType::FullTime->value,
+                'confirmation_date' => '2022-02-01',
+                'gender' => EmployeeGender::Male->value,
+                'status' => 'active',
+            ],
+            roles: [$roles['manager']],
+            baseSalary: '2800.00',
+        );
+
+        $helen = $this->upsertEmployeeWithUser(
+            user: [
+                'name' => 'Helen HR',
+                'email' => 'helen.hr@example.com',
+            ],
+            employee: [
+                'employee_code' => 'EMP-HR-001',
+                'department_id' => $departments['human_resources']->id,
+                'current_position_id' => $positions['head_of_hr']->id,
+                'manager_id' => $alice->id,
+                'leave_approver_id' => $derek->id,
+                'first_name' => 'Helen',
+                'last_name' => 'HR',
+                'email' => 'helen.hr@example.com',
+                'phone' => '+85510000002',
+                'hire_date' => '2022-03-15',
+                'employment_type' => EmploymentType::FullTime->value,
+                'confirmation_date' => '2022-03-15',
+                'gender' => EmployeeGender::Female->value,
+                'status' => 'active',
+            ],
+            roles: [$roles['hr'], $roles['hr_approver']],
+            baseSalary: '1900.00',
+        );
+
+        $henry = $this->upsertEmployeeWithUser(
+            user: [
+                'name' => 'Henry Recruiter',
+                'email' => 'henry.hr@example.com',
+            ],
+            employee: [
+                'employee_code' => 'EMP-HR-002',
+                'department_id' => $departments['human_resources']->id,
+                'current_position_id' => $positions['hr_officer']->id,
+                'manager_id' => $helen->id,
+                'leave_approver_id' => $helen->id,
+                'first_name' => 'Henry',
+                'last_name' => 'Recruiter',
+                'email' => 'henry.hr@example.com',
+                'phone' => '+85510000003',
+                'hire_date' => '2023-02-20',
+                'employment_type' => EmploymentType::FullTime->value,
+                'confirmation_date' => '2023-02-20',
+                'gender' => EmployeeGender::Male->value,
+                'status' => 'active',
+            ],
+            roles: [$roles['hr']],
+            baseSalary: '950.00',
+        );
+
+        $mark = $this->upsertEmployeeWithUser(
+            user: [
+                'name' => 'Mark Ops',
+                'email' => 'mark.ops@example.com',
+            ],
+            employee: [
+                'employee_code' => 'EMP-OPS-001',
+                'department_id' => $departments['operations']->id,
+                'current_position_id' => $positions['operations_manager']->id,
+                'manager_id' => $alice->id,
+                'leave_approver_id' => $derek->id,
+                'first_name' => 'Mark',
+                'last_name' => 'Ops',
+                'email' => 'mark.ops@example.com',
+                'phone' => '+85510000004',
+                'hire_date' => '2022-05-01',
+                'employment_type' => EmploymentType::FullTime->value,
+                'confirmation_date' => '2022-05-01',
+                'gender' => EmployeeGender::Male->value,
+                'status' => 'active',
+            ],
+            roles: [$roles['manager']],
+            baseSalary: '1650.00',
+        );
+
+        $diana = $this->upsertEmployeeWithUser(
+            user: [
+                'name' => 'Diana Dual',
+                'email' => 'diana.dual@example.com',
+            ],
+            employee: [
+                'employee_code' => 'EMP-OPS-002',
+                'department_id' => $departments['operations']->id,
+                'current_position_id' => $positions['regional_manager']->id,
+                'manager_id' => $alice->id,
+                'first_name' => 'Diana',
+                'last_name' => 'Dual',
+                'email' => 'diana.dual@example.com',
+                'phone' => '+85510000005',
+                'hire_date' => '2022-06-10',
+                'employment_type' => EmploymentType::FullTime->value,
+                'confirmation_date' => '2022-06-10',
+                'gender' => EmployeeGender::Female->value,
+                'status' => 'active',
+            ],
+            roles: [$roles['manager'], $roles['hr_approver']],
+            baseSalary: '1750.00',
+        );
+
+        $emma = $this->upsertEmployeeWithUser(
+            user: [
+                'name' => 'Emma Employee',
+                'email' => 'emma.employee@example.com',
+            ],
+            employee: [
+                'employee_code' => 'EMP-OPS-101',
+                'department_id' => $departments['operations']->id,
+                'current_position_id' => $positions['operations_staff']->id,
+                'manager_id' => $mark->id,
+                'first_name' => 'Emma',
+                'last_name' => 'Employee',
+                'email' => 'emma.employee@example.com',
+                'phone' => '+85510000006',
+                'hire_date' => '2023-04-01',
+                'employment_type' => EmploymentType::FullTime->value,
+                'confirmation_date' => '2023-04-01',
+                'gender' => EmployeeGender::Female->value,
+                'status' => 'active',
+            ],
+            roles: [$roles['employee']],
+            baseSalary: '720.00',
+        );
+
+        $ethan = $this->upsertEmployeeWithUser(
+            user: [
+                'name' => 'Ethan Staff',
+                'email' => 'ethan.staff@example.com',
+            ],
+            employee: [
+                'employee_code' => 'EMP-OPS-102',
+                'department_id' => $departments['operations']->id,
+                'current_position_id' => $positions['operations_staff']->id,
+                'manager_id' => $mark->id,
+                'first_name' => 'Ethan',
+                'last_name' => 'Staff',
+                'email' => 'ethan.staff@example.com',
+                'phone' => '+85510000007',
+                'hire_date' => '2023-06-10',
+                'employment_type' => EmploymentType::FullTime->value,
+                'confirmation_date' => '2023-06-10',
+                'gender' => EmployeeGender::Male->value,
+                'status' => 'active',
+            ],
+            roles: [$roles['employee']],
+            baseSalary: '700.00',
+        );
+
+        $fiona = $this->upsertEmployeeWithUser(
+            user: [
+                'name' => 'Fiona Finance',
+                'email' => 'fiona.finance@example.com',
+            ],
+            employee: [
+                'employee_code' => 'EMP-FIN-001',
+                'department_id' => $departments['finance']->id,
+                'current_position_id' => $positions['finance_officer']->id,
+                'manager_id' => $derek->id,
+                'first_name' => 'Fiona',
+                'last_name' => 'Finance',
+                'email' => 'fiona.finance@example.com',
+                'phone' => '+85510000008',
+                'hire_date' => '2023-01-12',
+                'employment_type' => EmploymentType::FullTime->value,
+                'confirmation_date' => '2023-01-12',
+                'gender' => EmployeeGender::Female->value,
+                'status' => 'active',
+            ],
+            roles: [$roles['employee']],
+            baseSalary: '980.00',
+        );
+
+        $nina = $this->upsertEmployeeWithUser(
+            user: [
+                'name' => 'Nina Dual Staff',
+                'email' => 'nina.dual@example.com',
+            ],
+            employee: [
+                'employee_code' => 'EMP-OPS-201',
+                'department_id' => $departments['operations']->id,
+                'current_position_id' => $positions['operations_staff']->id,
+                'manager_id' => $diana->id,
+                'first_name' => 'Nina',
+                'last_name' => 'DualStaff',
+                'email' => 'nina.dual@example.com',
+                'phone' => '+85510000009',
+                'hire_date' => '2023-08-15',
+                'employment_type' => EmploymentType::FullTime->value,
+                'confirmation_date' => '2023-08-15',
+                'gender' => EmployeeGender::Female->value,
+                'status' => 'active',
+            ],
+            roles: [$roles['employee']],
+            baseSalary: '730.00',
+        );
+
+        return [
+            'alice' => $alice,
+            'derek' => $derek,
+            'helen' => $helen,
+            'henry' => $henry,
+            'mark' => $mark,
+            'diana' => $diana,
+            'emma' => $emma,
+            'ethan' => $ethan,
+            'fiona' => $fiona,
+            'nina' => $nina,
+        ];
+    }
+
+    /**
+     * @param  array<string, Employee>  $employees
+     */
+    private function seedLeaveWorkflowScenarios(array $employees): void
+    {
+        $employeeIds = collect($employees)->map->id->all();
+
+        LeaveRequest::query()->whereIn('employee_id', $employeeIds)->delete();
+
+        $this->upsertLeaveRequest(
+            employee: $employees['emma'],
+            attributes: [
+                'type' => 'annual',
+                'reason' => 'Pending manager review for normal approval flow.',
+                'start_date' => '2026-04-20',
+                'end_date' => '2026-04-21',
+                'status' => LeaveRequestStatus::Pending,
+            ],
+        );
+
+        $this->upsertLeaveRequest(
+            employee: $employees['ethan'],
+            attributes: [
+                'type' => 'sick',
+                'reason' => 'Waiting for HR approval after manager approval.',
+                'start_date' => '2026-04-22',
+                'end_date' => '2026-04-22',
+                'manager_approved_by' => $employees['mark']->id,
+                'manager_approved_at' => now()->subDays(2),
+                'status' => LeaveRequestStatus::ManagerApproved,
+            ],
+        );
+
+        $this->upsertLeaveRequest(
+            employee: $employees['fiona'],
+            attributes: [
+                'type' => 'annual',
+                'reason' => 'Already approved through the normal manager then HR flow.',
+                'start_date' => '2026-03-20',
+                'end_date' => '2026-03-21',
+                'manager_approved_by' => $employees['derek']->id,
+                'manager_approved_at' => now()->subWeeks(3),
+                'hr_approved_by' => $employees['helen']->id,
+                'hr_approved_at' => now()->subWeeks(3)->addHour(),
+                'status' => LeaveRequestStatus::HrApproved,
+            ],
+        );
+
+        $this->upsertLeaveRequest(
+            employee: $employees['nina'],
+            attributes: [
+                'type' => 'annual',
+                'reason' => 'Pending direct-manager review for the dual-role approval scenario.',
+                'start_date' => '2026-04-24',
+                'end_date' => '2026-04-25',
+                'status' => LeaveRequestStatus::Pending,
+            ],
+        );
+
+        $this->upsertLeaveRequest(
+            employee: $employees['nina'],
+            attributes: [
+                'type' => 'special',
+                'reason' => 'Already approved by the same direct manager with HR authority.',
+                'start_date' => '2026-03-12',
+                'end_date' => '2026-03-12',
+                'manager_approved_by' => $employees['diana']->id,
+                'manager_approved_at' => now()->subWeeks(4),
+                'hr_approved_by' => $employees['diana']->id,
+                'hr_approved_at' => now()->subWeeks(4),
+                'status' => LeaveRequestStatus::HrApproved,
+            ],
+        );
+
+        $this->upsertLeaveRequest(
+            employee: $employees['emma'],
+            attributes: [
+                'type' => 'unpaid',
+                'reason' => 'Cancelled by the employee before final approval.',
+                'start_date' => '2026-03-05',
+                'end_date' => '2026-03-05',
+                'status' => LeaveRequestStatus::Cancelled,
+            ],
+        );
+
+        $this->upsertLeaveRequest(
+            employee: $employees['ethan'],
+            attributes: [
+                'type' => 'annual',
+                'reason' => 'Rejected during manager review.',
+                'start_date' => '2026-03-10',
+                'end_date' => '2026-03-11',
+                'status' => LeaveRequestStatus::Rejected,
+            ],
+        );
+
+        $this->upsertLeaveRequest(
+            employee: $employees['mark'],
+            attributes: [
+                'type' => 'annual',
+                'reason' => 'Manager self-approval should be rejected.',
+                'start_date' => '2026-04-28',
+                'end_date' => '2026-04-28',
+                'status' => LeaveRequestStatus::Pending,
+            ],
+        );
+
+        $this->upsertLeaveRequest(
+            employee: $employees['helen'],
+            attributes: [
+                'type' => 'sick',
+                'reason' => 'HR self-approval should be rejected.',
+                'start_date' => '2026-04-29',
+                'end_date' => '2026-04-29',
+                'manager_approved_by' => $employees['derek']->id,
+                'manager_approved_at' => now()->subDay(),
+                'status' => LeaveRequestStatus::ManagerApproved,
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @param  array<int, Role>  $roles
+     */
+    private function upsertEmployeeWithUser(array $user, array $employee, array $roles, string $baseSalary): Employee
+    {
         $userModel = User::query()->updateOrCreate(
             ['email' => $user['email']],
             [
@@ -370,7 +641,7 @@ class HrmsDemoSeeder extends Seeder
             $employeeModel->save();
         }
 
-        $userModel->roles()->sync([$role->id]);
+        $userModel->roles()->sync(collect($roles)->pluck('id')->all());
 
         EmployeePosition::query()->updateOrCreate(
             [
@@ -384,121 +655,31 @@ class HrmsDemoSeeder extends Seeder
             ]
         );
 
-        return $employeeModel;
-    }
-
-    private function seedLeaveRequests(
-        Employee $employeeOne,
-        Employee $employeeTwo,
-        Employee $operationsManager,
-        Employee $hrManager,
-    ): void {
-        LeaveRequest::query()->updateOrCreate(
-            [
-                'employee_id' => $employeeOne->id,
-                'start_date' => '2026-04-10',
-                'end_date' => '2026-04-12',
-            ],
-            [
-                'type' => 'annual',
-                'manager_approved_by' => null,
-                'manager_approved_at' => null,
-                'hr_approved_by' => null,
-                'hr_approved_at' => null,
-                'status' => 'pending',
-            ]
-        );
-
-        LeaveRequest::query()->updateOrCreate(
-            [
-                'employee_id' => $employeeTwo->id,
-                'start_date' => '2026-04-15',
-                'end_date' => '2026-04-16',
-            ],
-            [
-                'type' => 'sick',
-                'manager_approved_by' => $operationsManager->id,
-                'manager_approved_at' => now()->subDay(),
-                'hr_approved_by' => null,
-                'hr_approved_at' => null,
-                'status' => 'manager_approved',
-            ]
-        );
-
-        LeaveRequest::query()->updateOrCreate(
-            [
-                'employee_id' => $employeeOne->id,
-                'start_date' => '2026-03-20',
-                'end_date' => '2026-03-21',
-            ],
-            [
-                'type' => 'annual',
-                'manager_approved_by' => $operationsManager->id,
-                'manager_approved_at' => now()->subWeeks(2),
-                'hr_approved_by' => $hrManager->id,
-                'hr_approved_at' => now()->subWeeks(2)->addHour(),
-                'status' => 'hr_approved',
-            ]
-        );
+        return $employeeModel->fresh(['user.roles.permissions']) ?? $employeeModel;
     }
 
     /**
-     * @param  array<string, Department>  $departments
-     * @param  array<string, Position>  $positions
+     * @param  array<string, mixed>  $attributes
      */
-    private function seedAdditionalEmployees(
-        array $departments,
-        array $positions,
-        Role $role,
-        Employee $hrManager,
-        Employee $operationsManager,
-        Employee $financeOfficer,
-    ): void {
-        $departmentAssignments = [
+    private function upsertLeaveRequest(Employee $employee, array $attributes): void
+    {
+        LeaveRequest::query()->updateOrCreate(
             [
-                'department' => $departments['operations'],
-                'position' => $positions['operations_staff'],
-                'manager' => $operationsManager,
-                'salary' => '720.00',
+                'employee_id' => $employee->id,
+                'start_date' => $attributes['start_date'],
+                'end_date' => $attributes['end_date'],
             ],
             [
-                'department' => $departments['human_resources'],
-                'position' => $positions['hr_officer'],
-                'manager' => $hrManager,
-                'salary' => '880.00',
-            ],
-            [
-                'department' => $departments['finance'],
-                'position' => $positions['accountant'],
-                'manager' => $financeOfficer,
-                'salary' => '940.00',
-            ],
-        ];
-
-        for ($index = 1; $index <= self::EXTRA_EMPLOYEE_COUNT; $index++) {
-            $assignment = $departmentAssignments[($index - 1) % count($departmentAssignments)];
-            $employeeNumber = str_pad((string) $index, 2, '0', STR_PAD_LEFT);
-
-            $this->upsertEmployeeWithUser(
-                user: [
-                    'name' => 'Demo Employee '.$employeeNumber,
-                    'email' => 'demo.employee.'.$employeeNumber.'@example.com',
-                ],
-                employee: [
-                    'department_id' => $assignment['department']->id,
-                    'current_position_id' => $assignment['position']->id,
-                    'manager_id' => $assignment['manager']->id,
-                    'employee_code' => 'EMPDEMO'.$employeeNumber,
-                    'first_name' => 'Demo',
-                    'last_name' => 'Employee '.$employeeNumber,
-                    'email' => 'demo.employee.'.$employeeNumber.'@example.com',
-                    'phone' => '0'.str_pad((string) (12000000 + $index), 9, '0', STR_PAD_LEFT),
-                    'hire_date' => now()->subDays($index)->toDateString(),
-                    'status' => 'active',
-                ],
-                role: $role,
-                baseSalary: $assignment['salary'],
-            );
-        }
+                'type' => $attributes['type'],
+                'reason' => $attributes['reason'],
+                'duration_type' => 'full_day',
+                'half_day_session' => null,
+                'manager_approved_by' => $attributes['manager_approved_by'] ?? null,
+                'manager_approved_at' => $attributes['manager_approved_at'] ?? null,
+                'hr_approved_by' => $attributes['hr_approved_by'] ?? null,
+                'hr_approved_at' => $attributes['hr_approved_at'] ?? null,
+                'status' => $attributes['status'],
+            ]
+        );
     }
 }

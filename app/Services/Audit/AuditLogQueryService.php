@@ -5,6 +5,7 @@ namespace App\Services\Audit;
 use App\Models\Attendance;
 use App\Models\AttendanceCorrectionRequest;
 use App\Models\Employee;
+use App\Models\LeaveRequest;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
@@ -179,7 +180,7 @@ class AuditLogQueryService
             )
                 ->orWhereHasMorph(
                     'subject',
-                    [User::class, Employee::class, Attendance::class, AttendanceCorrectionRequest::class, Role::class, Permission::class],
+                    [User::class, Employee::class, Attendance::class, AttendanceCorrectionRequest::class, LeaveRequest::class, Role::class, Permission::class],
                     function (Builder $subjectQuery, string $type) use ($keyword, $isNumericKeyword): void {
                         if ($type === User::class) {
                             $subjectQuery->where(function (Builder $userQuery) use ($keyword): void {
@@ -214,6 +215,22 @@ class AuditLogQueryService
                             if ($isNumericKeyword) {
                                 $subjectQuery->where('id', (int) $keyword);
                             }
+
+                            return;
+                        }
+
+                        if ($type === LeaveRequest::class) {
+                            $subjectQuery->where(function (Builder $leaveQuery) use ($keyword, $isNumericKeyword): void {
+                                $leaveQuery->where('type', 'like', '%'.$keyword.'%')
+                                    ->orWhere('status', 'like', '%'.$keyword.'%')
+                                    ->orWhere('start_date', 'like', '%'.$keyword.'%')
+                                    ->orWhere('end_date', 'like', '%'.$keyword.'%');
+
+                                if ($isNumericKeyword) {
+                                    $leaveQuery->orWhere('id', (int) $keyword)
+                                        ->orWhere('employee_id', (int) $keyword);
+                                }
+                            });
 
                             return;
                         }
@@ -293,6 +310,15 @@ class AuditLogQueryService
 
         if ($subject instanceof AttendanceCorrectionRequest) {
             return sprintf('Correction Request #%d', $subject->id);
+        }
+
+        if ($subject instanceof LeaveRequest) {
+            return sprintf(
+                'Leave Request #%d (%s to %s)',
+                $subject->id,
+                $subject->start_date?->toDateString() ?? 'n/a',
+                $subject->end_date?->toDateString() ?? 'n/a',
+            );
         }
 
         if ($subject instanceof Role || $subject instanceof Permission) {

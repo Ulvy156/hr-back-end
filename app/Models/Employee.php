@@ -26,6 +26,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'current_position_id',
     'shift_id',
     'manager_id',
+    'leave_approver_id',
     'first_name',
     'last_name',
     'email',
@@ -117,6 +118,7 @@ class Employee extends Model
                 'current_position_id',
                 'shift_id',
                 'manager_id',
+                'leave_approver_id',
                 'first_name',
                 'last_name',
                 'email',
@@ -168,6 +170,11 @@ class Employee extends Model
     public function manager(): BelongsTo
     {
         return $this->belongsTo(self::class, 'manager_id');
+    }
+
+    public function leaveApprover(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'leave_approver_id');
     }
 
     public function subordinates(): HasMany

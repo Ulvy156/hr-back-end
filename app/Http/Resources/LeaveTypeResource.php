@@ -21,6 +21,7 @@ class LeaveTypeResource extends JsonResource
             'code' => $this->resource->code,
             'name' => $this->resource->name,
             'description' => $this->resource->description,
+            'label' => $this->resource->name,
             'is_paid' => $this->resource->is_paid,
             'requires_balance' => $this->resource->requires_balance,
             'requires_attachment' => $this->resource->requires_attachment,
@@ -31,6 +32,13 @@ class LeaveTypeResource extends JsonResource
             'min_service_days' => $this->resource->min_service_days,
             'max_days_per_request' => $this->resource->max_days_per_request,
             'max_days_per_year' => $this->resource->max_days_per_year,
+            'supports_half_day' => (bool) ($this->resource->supports_half_day ?? false),
+            'supported_half_day_sessions' => $this->resource->supported_half_day_sessions ?? [],
+            'notice_rules' => $this->resource->notice_rules ?? [],
+            'notice_rule_text' => $this->resource->notice_rule_text,
+            'is_requestable' => (bool) ($this->resource->is_requestable ?? true),
+            'request_restriction_reason' => $this->resource->request_restriction_reason,
+            'balance_snapshot' => $this->resource->balance_snapshot,
         ];
     }
 }

@@ -123,7 +123,7 @@ class AuthService
             throw new UnauthorizedHttpException('Bearer', 'Unauthenticated.');
         }
 
-        return $user->load(['employee', 'roles']);
+        return $user->load(['employee', 'roles', 'employee.manager', 'employee.currentPosition', 'employee.department']);
     }
 
     public function profile(?User $user): User

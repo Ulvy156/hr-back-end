@@ -11,6 +11,7 @@ use App\Models\Position;
 use App\Models\Role;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -50,7 +51,7 @@ class DashboardTestingSeeder extends Seeder
         });
     }
 
-    private function seedTodayAttendance(\Illuminate\Database\Eloquent\Collection $employees): void
+    private function seedTodayAttendance(Collection $employees): void
     {
         $today = today();
 
@@ -126,7 +127,7 @@ class DashboardTestingSeeder extends Seeder
         }
     }
 
-    private function seedTodayLeave(\Illuminate\Database\Eloquent\Collection $employees): void
+    private function seedTodayLeave(Collection $employees): void
     {
         LeaveRequest::query()->updateOrCreate(
             [
@@ -136,7 +137,7 @@ class DashboardTestingSeeder extends Seeder
             ],
             [
                 'type' => 'annual',
-                'manager_approved_by' => $employees['mark.ops@example.com']->id,
+                'manager_approved_by' => $employees['alice.ceo@example.com']->id,
                 'manager_approved_at' => now()->subDay(),
                 'hr_approved_by' => $employees['helen.hr@example.com']->id,
                 'hr_approved_at' => now()->subHours(12),

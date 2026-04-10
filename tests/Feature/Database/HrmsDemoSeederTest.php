@@ -6,10 +6,16 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-it('seeds the base demo employees plus fifty additional employees', function () {
+it('seeds the demo employee hierarchy with dedicated leave approvers', function () {
     $this->seed(HrmsDemoSeeder::class);
 
-    expect(Employee::query()->count())->toBe(57)
-        ->and(Employee::query()->where('email', 'demo.employee.01@example.com')->exists())->toBeTrue()
-        ->and(Employee::query()->where('email', 'demo.employee.50@example.com')->exists())->toBeTrue();
+    $headOfHr = Employee::query()->where('email', 'helen.hr@example.com')->firstOrFail();
+    $director = Employee::query()->where('email', 'derek.director@example.com')->firstOrFail();
+    $operationsManager = Employee::query()->where('email', 'mark.ops@example.com')->firstOrFail();
+    $normalEmployee = Employee::query()->where('email', 'emma.employee@example.com')->firstOrFail();
+
+    expect(Employee::query()->count())->toBe(10)
+        ->and($headOfHr->leave_approver_id)->toBe($director->id)
+        ->and($operationsManager->leave_approver_id)->toBe($director->id)
+        ->and($normalEmployee->leave_approver_id)->toBeNull();
 });
