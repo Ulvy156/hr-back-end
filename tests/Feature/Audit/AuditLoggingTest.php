@@ -6,6 +6,7 @@ use App\Models\Employee;
 use App\Models\Position;
 use App\Models\Role;
 use App\Models\User;
+use App\PermissionName;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Passport\Passport;
@@ -145,6 +146,35 @@ it('logs access control changes when roles are created', function () {
         ->and($activity?->description)->toBe('created');
 });
 
+it('logs user access updates with before and after assignments', function () {
+    $adminUser = createAuditLoggingUser('admin');
+    $targetUser = createAuditLoggingUser('employee');
+
+    Passport::actingAs($adminUser);
+
+    $this->patchJson("/api/users/{$targetUser->id}/access", [
+        'roles' => ['hr'],
+        'permissions' => [PermissionName::AuditLogView->value],
+    ])->assertOk();
+
+    /** @var Activity|null $activity */
+    $activity = Activity::query()
+        ->where('log_name', 'access_control')
+        ->where('event', 'user_access_updated')
+        ->where('subject_type', User::class)
+        ->where('subject_id', $targetUser->id)
+        ->latest('id')
+        ->first();
+
+    expect($activity)->not->toBeNull()
+        ->and($activity?->causer_id)->toBe($adminUser->id)
+        ->and($activity?->description)->toBe('user.access_updated')
+        ->and($activity?->getExtraProperty('old_roles'))->toBe(['employee'])
+        ->and($activity?->getExtraProperty('new_roles'))->toBe(['hr'])
+        ->and($activity?->getExtraProperty('old_direct_permissions'))->toBe([])
+        ->and($activity?->getExtraProperty('new_direct_permissions'))->toBe([PermissionName::AuditLogView->value]);
+});
+
 function createAuditLoggingUser(string $roleName): User
 {
     $department = Department::query()->create([
@@ -176,7 +206,7 @@ function createAuditLoggingUser(string $roleName): User
 
     $user->roles()->syncWithoutDetaching([$role->id]);
 
-    return $user->fresh('employee.department', 'roles');
+    return $user->fresh('employee.department', 'roles.permissions');
 }
 
 function createAuditLoggingAttendance(

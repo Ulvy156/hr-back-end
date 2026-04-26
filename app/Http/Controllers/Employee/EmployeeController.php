@@ -12,10 +12,12 @@ use App\Http\Requests\Employee\UpdateEmployeeRequest;
 use App\Http\Requests\Employee\UploadEmployeeProfilePhotoRequest;
 use App\Http\Resources\EmployeeIndexResource;
 use App\Http\Resources\EmployeeResource;
+use App\Http\Resources\User\AvailableEmployeeUserResource;
 use App\Models\User;
 use App\Services\Employee\EmployeeExportService;
 use App\Services\Employee\EmployeeProfilePhotoService;
 use App\Services\Employee\EmployeeService;
+use App\Services\UserService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,6 +31,7 @@ class EmployeeController extends Controller
         private EmployeeService $employeeService,
         private EmployeeExportService $employeeExportService,
         private EmployeeProfilePhotoService $employeeProfilePhotoService,
+        private UserService $userService,
     ) {}
 
     public function index(IndexEmployeeRequest $request): AnonymousResourceCollection
@@ -67,6 +70,13 @@ class EmployeeController extends Controller
                 $authenticatedUser,
                 $this->requestedIncludes($request),
             )
+        );
+    }
+
+    public function availableUsers(): AnonymousResourceCollection
+    {
+        return AvailableEmployeeUserResource::collection(
+            $this->userService->listAvailableForEmployeeLinking()
         );
     }
 

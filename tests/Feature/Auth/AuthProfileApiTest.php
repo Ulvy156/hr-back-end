@@ -6,6 +6,7 @@ use App\Models\Department;
 use App\Models\District;
 use App\Models\Employee;
 use App\Models\EmployeeEducation;
+use App\Models\Permission;
 use App\Models\Position;
 use App\Models\Province;
 use App\Models\Role;
@@ -50,10 +51,24 @@ it('returns the authenticated user profile with employee details and nested rela
     ]);
 
     $user = User::factory()->create([
-        'name' => 'Dara Lim',
+        'name' => 'Legacy Account Name',
         'email' => 'dara.lim@example.com',
     ]);
     $user->roles()->attach($role);
+
+    $rolePermission = Permission::query()->create([
+        'name' => 'auth.profile.role',
+        'description' => 'Granted through role',
+        'guard_name' => 'api',
+    ]);
+    $directPermission = Permission::query()->create([
+        'name' => 'auth.profile.direct',
+        'description' => 'Granted directly',
+        'guard_name' => 'api',
+    ]);
+
+    $role->givePermissionTo($rolePermission);
+    $user->givePermissionTo($directPermission);
 
     $employee = Employee::query()->create([
         'user_id' => $user->id,
@@ -146,7 +161,7 @@ it('returns the authenticated user profile with employee details and nested rela
 
     Passport::actingAs($user);
 
-    $this->getJson('/api/auth/profile')
+    $response = $this->getJson('/api/auth/profile')
         ->assertOk()
         ->assertJsonPath('id', $user->id)
         ->assertJsonPath('name', 'Dara Lim')
@@ -163,6 +178,30 @@ it('returns the authenticated user profile with employee details and nested rela
         ->assertJsonPath('employee.educations.0.institution_name', 'Royal University')
         ->assertJsonPath('employee.emergency_contacts.0.name', 'Sibling One')
         ->assertJsonPath('employee.employee_positions.0.position.title', 'Support Agent');
+
+    expect($response->json('permissions'))
+        ->toContain('auth.profile.direct')
+        ->toContain('auth.profile.role')
+        ->toContain('leave.type.view');
+
+    $meResponse = $this->getJson('/api/auth/me')
+        ->assertOk()
+        ->assertJsonPath('id', $user->id)
+        ->assertJsonPath('roles.0.name', 'employee')
+        ->assertJsonPath('permission_catalog.naming_pattern', 'module.action[.scope]');
+
+    expect($meResponse->json('permissions'))
+        ->toContain('auth.profile.direct')
+        ->toContain('auth.profile.role')
+        ->toContain('leave.type.view')
+        ->and(collect($meResponse->json('permission_catalog.modules')))
+        ->pluck('key')
+        ->toContain('employee')
+        ->toContain('attendance')
+        ->toContain('leave')
+        ->toContain('payroll')
+        ->toContain('user_role_management')
+        ->toContain('audit_log');
 });
 
 it('requires authentication to view the profile endpoint', function () {

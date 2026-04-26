@@ -7,10 +7,11 @@ use App\Http\Controllers\Employee\EmployeeEmergencyContactController;
 use App\Http\Controllers\Employee\EmployeePositionController;
 use App\Http\Controllers\Employee\LocationController;
 use App\Http\Controllers\Employee\PositionController;
+use App\PermissionName;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth:api', 'role:admin,hr'])->get('positions', [PositionController::class, 'index']);
-Route::middleware(['auth:api', 'role:admin,hr,employee'])->prefix('locations')->group(function (): void {
+Route::middleware(['auth:api', 'permission:'.PermissionName::PositionView->value])->get('positions', [PositionController::class, 'index']);
+Route::middleware(['auth:api', 'permission:'.PermissionName::LocationView->value])->prefix('locations')->group(function (): void {
     Route::get('provinces', [LocationController::class, 'provinces']);
     Route::get('districts', [LocationController::class, 'districts']);
     Route::get('communes', [LocationController::class, 'communes']);
@@ -18,7 +19,7 @@ Route::middleware(['auth:api', 'role:admin,hr,employee'])->prefix('locations')->
 });
 
 Route::middleware('auth:api')->prefix('employees')->group(function (): void {
-    Route::middleware('role:admin,hr')->group(function (): void {
+    Route::middleware('permission:'.PermissionName::EmployeeManage->value)->group(function (): void {
         Route::get('/', [EmployeeController::class, 'index']);
         Route::post('/', [EmployeeController::class, 'store']);
         Route::post('{id}/restore', [EmployeeController::class, 'restore']);
@@ -48,6 +49,7 @@ Route::middleware('auth:api')->prefix('employees')->group(function (): void {
         Route::delete('{id}', [EmployeeController::class, 'destroy']);
     });
 
-    Route::middleware('role:hr')->get('export/excel', [EmployeeController::class, 'exportExcel']);
-    Route::middleware('role:employee,hr,admin')->get('{id}', [EmployeeController::class, 'show']);
+    Route::middleware('permission:'.PermissionName::EmployeeUserLinkView->value)->get('available-users', [EmployeeController::class, 'availableUsers']);
+    Route::middleware('permission:'.PermissionName::EmployeeExport->value)->get('export/excel', [EmployeeController::class, 'exportExcel']);
+    Route::middleware('permission:'.PermissionName::EmployeeView->value)->get('{id}', [EmployeeController::class, 'show']);
 });

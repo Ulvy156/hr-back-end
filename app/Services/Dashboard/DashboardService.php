@@ -32,7 +32,8 @@ class DashboardService
         return match ($role) {
             'admin' => $this->buildAdminDashboard($authenticatedUser),
             'hr' => $this->buildHrDashboard($authenticatedUser),
-            default => $this->buildEmployeeDashboard($authenticatedUser),
+            'manager' => $this->buildEmployeeDashboard($authenticatedUser, 'manager'),
+            default => $this->buildEmployeeDashboard($authenticatedUser, 'employee'),
         };
     }
 
@@ -45,7 +46,7 @@ class DashboardService
      *     extra: array<string, mixed>
      * }
      */
-    private function buildEmployeeDashboard(User $authenticatedUser): array
+    private function buildEmployeeDashboard(User $authenticatedUser, string $role): array
     {
         $employee = $this->ensureEmployeeProfile($authenticatedUser);
         $todayAttendance = Attendance::query()
@@ -56,7 +57,7 @@ class DashboardService
         $todaySummary = $this->getTodayAttendanceSummary($todayAttendance);
 
         return [
-            'role' => 'employee',
+            'role' => $role,
             'summary' => [
                 ...$todaySummary,
                 'attendanceThisWeek' => $this->getWeeklyAttendanceSummary($employee),
@@ -82,10 +83,6 @@ class DashboardService
      */
     private function buildHrDashboard(User $authenticatedUser): array
     {
-        if (! $this->hasRole($authenticatedUser, 'hr')) {
-            throw new HttpException(403, 'Forbidden.');
-        }
-
         return [
             'role' => 'hr',
             'summary' => $this->getWorkforceSummary(),
@@ -112,10 +109,6 @@ class DashboardService
      */
     private function buildAdminDashboard(User $authenticatedUser): array
     {
-        if (! $this->hasRole($authenticatedUser, 'admin')) {
-            throw new HttpException(403, 'Forbidden.');
-        }
-
         return [
             'role' => 'admin',
             'summary' => [
@@ -353,25 +346,9 @@ class DashboardService
 
     private function resolveRole(User $authenticatedUser): string
     {
-        $roleNames = $authenticatedUser->loadMissing('roles')->roles
-            ->pluck('name')
-            ->map(fn (mixed $name): string => (string) $name);
+        $role = $authenticatedUser->getRoleNames()->first();
 
-        if ($roleNames->contains('admin')) {
-            return 'admin';
-        }
-
-        if ($roleNames->contains('hr')) {
-            return 'hr';
-        }
-
-        return 'employee';
-    }
-
-    private function hasRole(User $authenticatedUser, string $role): bool
-    {
-        return $authenticatedUser->loadMissing('roles')->roles
-            ->contains(fn (Role $userRole): bool => $userRole->name === $role);
+        return in_array($role, Role::managedRoleNames(), true) ? $role : 'employee';
     }
 
     private function activeEmployeesQuery(): Builder

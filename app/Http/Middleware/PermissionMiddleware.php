@@ -8,14 +8,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Symfony\Component\HttpFoundation\Response;
 
-class RoleMiddleware
+class PermissionMiddleware
 {
     /**
      * Handle an incoming request.
      *
-     * @param  Closure(Request): (Response)  $next
+     * @param  Closure(Request): Response  $next
      */
-    public function handle(Request $request, Closure $next, string ...$roles): Response
+    public function handle(Request $request, Closure $next, string ...$permissions): Response
     {
         /** @var User|null $user */
         $user = $request->user('api') ?? $request->user();
@@ -26,23 +26,24 @@ class RoleMiddleware
             ], Response::HTTP_UNAUTHORIZED);
         }
 
-        $requiredRoles = Collection::make($roles)
-            ->flatMap(fn (string $role) => explode(',', $role))
-            ->map(fn (string $role) => trim($role))
+        $requiredPermissions = Collection::make($permissions)
+            ->flatMap(
+                static fn (string $permission): array => preg_split('/[|,]/', $permission) ?: []
+            )
+            ->map(static fn (string $permission): string => trim($permission))
             ->filter()
             ->values();
 
-        if ($requiredRoles->isEmpty()) {
+        if ($requiredPermissions->isEmpty()) {
             return response()->json([
                 'message' => 'Forbidden.',
             ], Response::HTTP_FORBIDDEN);
         }
 
-        $hasRequiredRole = $user->roles()
-            ->whereIn('name', $requiredRoles->all())
-            ->exists();
+        $hasRequiredPermission = $requiredPermissions
+            ->contains(fn (string $permission): bool => $user->can($permission));
 
-        if (! $hasRequiredRole) {
+        if (! $hasRequiredPermission) {
             return response()->json([
                 'message' => 'Forbidden.',
             ], Response::HTTP_FORBIDDEN);

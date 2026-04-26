@@ -35,7 +35,7 @@ class UpdateUserRequest extends FormRequest
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class, 'email')->ignore($userId)],
             'password' => ['nullable', 'string', Password::default()],
             'employee_id' => [
-                'required',
+                'nullable',
                 'integer',
                 Rule::exists(Employee::class, 'id')->where(
                     fn ($query) => $query
@@ -45,7 +45,7 @@ class UpdateUserRequest extends FormRequest
                         })
                 ),
             ],
-            'role_ids' => ['sometimes', 'array'],
+            'role_ids' => ['sometimes', 'array', 'max:1'],
             'role_ids.*' => ['integer', 'distinct', Rule::exists(Role::class, 'id')],
         ];
     }

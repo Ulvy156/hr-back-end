@@ -39,7 +39,7 @@ class EmployeeResource extends JsonResource
                 $this->resource->relationLoaded('user') && $this->resource->user !== null,
                 fn (): array => [
                     'id' => $this->resource->user->id,
-                    'name' => $this->resource->user->name,
+                    'name' => $this->resource->user->displayName(),
                     'email' => $this->resource->user->email,
                 ],
             ),

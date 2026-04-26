@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Leave;
 
+use App\PermissionName;
 use App\Services\Leave\LeaveRequestStatus;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -11,7 +12,9 @@ class ManagerReviewLeaveRequestRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user('api') !== null;
+        $user = $this->user('api') ?? $this->user();
+
+        return $user?->can(PermissionName::LeaveApproveManager->value) ?? false;
     }
 
     /**

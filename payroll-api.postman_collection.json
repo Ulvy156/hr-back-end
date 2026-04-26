@@ -1,0 +1,510 @@
+{
+  "info": {
+    "_postman_id": "8b5f7bd1-4d22-4c6f-8a54-hr-back-end-payroll-api",
+    "name": "HR Back End - Payroll API",
+    "description": "Postman collection for payroll salary setup, payroll run generation and lifecycle, payroll export, and employee self-service payslips.\n\nPayroll rule snapshot:\n- no allowance\n- no commission\n- no late salary cut\n- overtime adds salary\n- only approved unpaid leave reduces salary\n- salary is prorated for join or resign mid-month\n- payroll generation is all-or-nothing\n- employee_salaries is the source of truth\n- employee_positions.base_salary is compatibility-only fallback when no salary history exists",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api"
+    },
+    {
+      "key": "email",
+      "value": "alice.ceo@example.com"
+    },
+    {
+      "key": "password",
+      "value": "password"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "employee_id",
+      "value": "1"
+    },
+    {
+      "key": "employee_salary_id",
+      "value": "1"
+    },
+    {
+      "key": "payroll_run_id",
+      "value": "1"
+    },
+    {
+      "key": "payroll_item_id",
+      "value": "1"
+    },
+    {
+      "key": "month",
+      "value": "2026-04"
+    },
+    {
+      "key": "status",
+      "value": "draft"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data.access_token) {",
+                  "    pm.collectionVariables.set('access_token', data.access_token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Salary",
+      "item": [
+        {
+          "name": "List Payroll Salaries",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payroll/salaries?employee_id={{employee_id}}&effective_on=2026-04-15&per_page=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "salaries"
+              ],
+              "query": [
+                {
+                  "key": "employee_id",
+                  "value": "{{employee_id}}"
+                },
+                {
+                  "key": "effective_on",
+                  "value": "2026-04-15"
+                },
+                {
+                  "key": "per_page",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Required permission: `payroll.salary.view`.\n\nQuery params:\n- employee_id nullable integer\n- effective_on nullable date\n- per_page nullable integer 1..100\n\nSuccess response example:\n{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"employee_id\": 10,\n      \"employee\": {\n        \"id\": 10,\n        \"employee_code\": \"EMP001\",\n        \"full_name\": \"Dara Lim\"\n      },\n      \"amount\": \"725.50\",\n      \"effective_date\": \"2026-04-01\",\n      \"end_date\": null,\n      \"is_current\": true\n    }\n  ],\n  \"meta\": {\n    \"total\": 1\n  }\n}\n\nValidation error example:\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"effective_on\": [\n      \"The effective on is not a valid date.\"\n    ]\n  }\n}\n\nAuth or permission error example:\n{\n  \"message\": \"Forbidden.\"\n}"
+          }
+        },
+        {
+          "name": "Create Payroll Salary",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee_id\": {{employee_id}},\n  \"amount\": 725.50,\n  \"effective_date\": \"2026-04-01\",\n  \"end_date\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/payroll/salaries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "salaries"
+              ]
+            },
+            "description": "Required permission: `payroll.salary.manage`.\n\nRequest body:\n- employee_id required integer\n- amount required numeric > 0\n- effective_date required date\n- end_date nullable date >= effective_date\n\nSuccess response example:\n{\n  \"id\": 1,\n  \"employee_id\": 10,\n  \"amount\": \"725.50\",\n  \"effective_date\": \"2026-04-01\",\n  \"end_date\": null,\n  \"is_current\": true\n}\n\nValidation error example:\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"effective_date\": [\n      \"The salary period overlaps an existing salary record for this employee.\"\n    ]\n  }\n}\n\nAuth or permission error example:\n{\n  \"message\": \"Forbidden.\"\n}"
+          }
+        },
+        {
+          "name": "Update Payroll Salary",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 680,\n  \"end_date\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/payroll/salaries/{{employee_salary_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "salaries",
+                "{{employee_salary_id}}"
+              ]
+            },
+            "description": "Required permission: `payroll.salary.manage`.\n\nRequest body:\n- amount optional numeric > 0\n- effective_date optional date\n- end_date optional nullable date >= effective_date\n- employee_id is prohibited\n\nSuccess response example:\n{\n  \"id\": 1,\n  \"employee_id\": 10,\n  \"amount\": \"680.00\",\n  \"effective_date\": \"2026-04-01\",\n  \"end_date\": null,\n  \"is_current\": true\n}\n\nValidation error example:\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"amount\": [\n      \"The amount field must be greater than 0.\"\n    ]\n  }\n}\n\nAuth or permission error example:\n{\n  \"message\": \"Forbidden.\"\n}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payroll Runs",
+      "item": [
+        {
+          "name": "Generate Payroll Run",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"month\": \"{{month}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/payroll/runs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "runs"
+              ]
+            },
+            "description": "Required permission: `payroll.run.generate`.\n\nRequest body:\n- month required YYYY-MM\n\nSuccess response example:\n{\n  \"id\": 1,\n  \"payroll_month\": \"2026-04-01\",\n  \"status\": \"draft\",\n  \"employee_count\": 1,\n  \"total_net_salary\": \"2100.00\"\n}\n\nValidation error example (duplicate month):\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"month\": [\n      \"A payroll run already exists for the selected month.\"\n    ]\n  }\n}\n\nAll-or-nothing salary failure example:\n{\n  \"message\": \"Payroll generation failed because some employees have no valid salary.\",\n  \"errors\": [\n    {\n      \"employee_id\": 11,\n      \"employee_code\": \"EMP002\",\n      \"employee_name\": \"Sok Chan\",\n      \"reason\": \"No valid salary found for selected month.\"\n    }\n  ]\n}\n\nAuth or permission error example:\n{\n  \"message\": \"Forbidden.\"\n}"
+          }
+        },
+        {
+          "name": "List Payroll Runs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payroll/runs?month={{month}}&status={{status}}&per_page=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "runs"
+              ],
+              "query": [
+                {
+                  "key": "month",
+                  "value": "{{month}}"
+                },
+                {
+                  "key": "status",
+                  "value": "{{status}}"
+                },
+                {
+                  "key": "per_page",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Required permission: `payroll.run.view`.\n\nQuery params:\n- month nullable YYYY-MM\n- status nullable draft|approved|paid|cancelled\n- per_page nullable integer 1..100\n\nSuccess response example:\n{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"payroll_month\": \"2026-04-01\",\n      \"status\": \"draft\",\n      \"employee_count\": 2,\n      \"total_net_salary\": \"4170.00\"\n    }\n  ],\n  \"meta\": {\n    \"total\": 1\n  }\n}\n\nValidation error example:\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"status\": [\n      \"The selected status is invalid.\"\n    ]\n  }\n}\n\nAuth or permission error example:\n{\n  \"message\": \"Forbidden.\"\n}"
+          }
+        },
+        {
+          "name": "Show Payroll Run Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payroll/runs/{{payroll_run_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "runs",
+                "{{payroll_run_id}}"
+              ]
+            },
+            "description": "Required permission: `payroll.run.view`.\n\nSuccess response example:\n{\n  \"id\": 1,\n  \"payroll_month\": \"2026-04-01\",\n  \"status\": \"approved\",\n  \"items\": [\n    {\n      \"id\": 1,\n      \"employee_code\": \"EMP001\",\n      \"employee_name\": \"Dara Lim\",\n      \"base_salary\": \"2100.00\",\n      \"prorated_base_salary\": \"2000.00\",\n      \"overtime_pay\": \"60.00\",\n      \"unpaid_leave_deduction\": \"100.00\",\n      \"net_salary\": \"1960.00\"\n    }\n  ]\n}\n\nValidation error example:\n- no request payload validation on this route\n- invalid or missing payrollRun path value returns 404\n\nAuth or permission error example:\n{\n  \"message\": \"Forbidden.\"\n}"
+          }
+        },
+        {
+          "name": "Approve Payroll Run",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payroll/runs/{{payroll_run_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "runs",
+                "{{payroll_run_id}}",
+                "approve"
+              ]
+            },
+            "description": "Required permission: `payroll.run.approve`.\n\nSuccess response example:\n{\n  \"id\": 1,\n  \"status\": \"approved\"\n}\n\nValidation error example:\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"status\": [\n      \"Only draft payroll runs can be approved.\"\n    ]\n  }\n}\n\nAuth or permission error example:\n{\n  \"message\": \"Forbidden.\"\n}"
+          }
+        },
+        {
+          "name": "Mark Payroll Run Paid",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payroll/runs/{{payroll_run_id}}/mark-paid",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "runs",
+                "{{payroll_run_id}}",
+                "mark-paid"
+              ]
+            },
+            "description": "Required permission: `payroll.run.mark-paid`.\n\nSuccess response example:\n{\n  \"id\": 1,\n  \"status\": \"paid\"\n}\n\nValidation error example:\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"status\": [\n      \"Only approved payroll runs can be marked as paid.\"\n    ]\n  }\n}\n\nAuth or permission error example:\n{\n  \"message\": \"Forbidden.\"\n}"
+          }
+        },
+        {
+          "name": "Cancel Payroll Run",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payroll/runs/{{payroll_run_id}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "runs",
+                "{{payroll_run_id}}",
+                "cancel"
+              ]
+            },
+            "description": "Required permission: `payroll.run.cancel`.\n\nSuccess response example:\n{\n  \"id\": 1,\n  \"status\": \"cancelled\"\n}\n\nValidation error example:\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"status\": [\n      \"Only draft or approved payroll runs can be cancelled.\"\n    ]\n  }\n}\n\nAuth or permission error example:\n{\n  \"message\": \"Forbidden.\"\n}"
+          }
+        },
+        {
+          "name": "Regenerate Payroll Run",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payroll/runs/{{payroll_run_id}}/regenerate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "runs",
+                "{{payroll_run_id}}",
+                "regenerate"
+              ]
+            },
+            "description": "Required permission: `payroll.run.generate`.\n\nBehavior:\n- only draft payroll runs can regenerate\n- existing payroll_items are deleted\n- the month is recomputed inside a transaction\n\nSuccess response example:\n{\n  \"id\": 1,\n  \"status\": \"draft\",\n  \"total_base_salary\": \"2100.00\",\n  \"total_net_salary\": \"2100.00\"\n}\n\nValidation error example:\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"status\": [\n      \"Only draft payroll runs can be regenerated.\"\n    ]\n  }\n}\n\nBlocking salary failure example:\n{\n  \"message\": \"Payroll generation failed because some employees have no valid salary.\",\n  \"errors\": [\n    {\n      \"employee_id\": 11,\n      \"employee_code\": \"EMP002\",\n      \"employee_name\": \"Sok Chan\",\n      \"reason\": \"No valid salary found for selected month.\"\n    }\n  ]\n}\n\nAuth or permission error example:\n{\n  \"message\": \"Forbidden.\"\n}"
+          }
+        },
+        {
+          "name": "Export Payroll Run Excel",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payroll/runs/{{payroll_run_id}}/export/excel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "runs",
+                "{{payroll_run_id}}",
+                "export",
+                "excel"
+              ]
+            },
+            "description": "Required permission: `payroll.export`.\n\nExports payroll_run and payroll_items snapshots only. No payroll recalculation happens during export.\n\nSuccess response example:\nHTTP 200 download with content type application/vnd.openxmlformats-officedocument.spreadsheetml.sheet and filename payroll-run-2026-04.xlsx.\n\nValidation error example:\n- no request payload validation on this route\n- invalid or missing payrollRun path value returns 404\n\nAuth or permission error example:\n{\n  \"message\": \"Forbidden.\"\n}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payslips",
+      "item": [
+        {
+          "name": "List My Payslips",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payroll/me/payslips?month={{month}}&status=paid&per_page=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "me",
+                "payslips"
+              ],
+              "query": [
+                {
+                  "key": "month",
+                  "value": "{{month}}"
+                },
+                {
+                  "key": "status",
+                  "value": "paid"
+                },
+                {
+                  "key": "per_page",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Required permission: `payroll.payslip.view-own`.\n\nAccess rule:\n- always scoped to the authenticated user's employee profile\n- request employee_id is never trusted\n\nSuccess response example:\n{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"payroll_run_id\": 3,\n      \"payroll_month\": \"2026-04-01\",\n      \"payroll_status\": \"paid\",\n      \"base_salary\": \"2100.00\",\n      \"overtime_pay\": \"30.00\",\n      \"unpaid_leave_deduction\": \"50.00\",\n      \"net_salary\": \"2080.00\"\n    }\n  ],\n  \"meta\": {\n    \"total\": 1\n  }\n}\n\nValidation error example:\n{\n  \"message\": \"The given data was invalid.\",\n  \"errors\": {\n    \"status\": [\n      \"The selected status is invalid.\"\n    ]\n  }\n}\n\nAuth or permission error example:\n{\n  \"message\": \"Forbidden.\"\n}"
+          }
+        },
+        {
+          "name": "Show My Payslip",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payroll/me/payslips/{{payroll_item_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "me",
+                "payslips",
+                "{{payroll_item_id}}"
+              ]
+            },
+            "description": "Required permission: `payroll.payslip.view-own`.\n\nAccess rule:\n- authenticated employee can only open their own payroll item\n\nSuccess response example:\n{\n  \"id\": 1,\n  \"payroll_run_id\": 3,\n  \"payroll_month\": \"2026-04-01\",\n  \"payroll_status\": \"paid\",\n  \"salary_source\": \"employee_salaries\",\n  \"base_salary\": \"2100.00\",\n  \"prorated_base_salary\": \"2000.00\",\n  \"overtime_pay\": \"60.00\",\n  \"unpaid_leave_deduction\": \"100.00\",\n  \"net_salary\": \"1960.00\"\n}\n\nValidation error example:\n- no request payload validation on this route\n- invalid or missing payrollItem path value returns 404\n\nAuth or permission error example:\n{\n  \"message\": \"Forbidden.\"\n}"
+          }
+        }
+      ]
+    }
+  ]
+}

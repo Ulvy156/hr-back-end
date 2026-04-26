@@ -6,6 +6,7 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
 use App\Models\User;
+use App\PermissionName;
 use App\Services\AuditLogService;
 use App\Services\Employee\Exports\EmployeeExcelExporter;
 use Illuminate\Support\Facades\File;
@@ -93,7 +94,7 @@ class EmployeeExportService
 
     private function ensureCanExport(User $authenticatedUser): void
     {
-        if ($authenticatedUser->roles()->where('name', 'hr')->exists()) {
+        if ($authenticatedUser->can(PermissionName::EmployeeExport->value)) {
             return;
         }
 

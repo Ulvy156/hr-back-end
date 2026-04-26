@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Employee;
 
 use App\EmployeeAddressType;
+use App\PermissionName;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -11,7 +12,9 @@ class StoreEmployeeAddressRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user('api') ?? $this->user();
+
+        return $user?->can(PermissionName::EmployeeManage->value) ?? false;
     }
 
     /**

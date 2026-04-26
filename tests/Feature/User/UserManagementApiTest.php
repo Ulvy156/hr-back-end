@@ -2,9 +2,11 @@
 
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\Permission;
 use App\Models\Position;
 use App\Models\Role;
 use App\Models\User;
+use App\PermissionName;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Passport\Passport;
 
@@ -48,7 +50,7 @@ it('lists admin users with filters and shaped responses', function () {
     $this->getJson('/api/users?search=Visible&role_id='.$employeeRole->id.'&employee_status=active&employee_id='.$visibleUser->employee?->id.'&per_page=10')
         ->assertOk()
         ->assertJsonPath('data.0.id', $visibleUser->id)
-        ->assertJsonPath('data.0.name', 'Visible User')
+        ->assertJsonPath('data.0.name', 'Visible Sok')
         ->assertJsonPath('data.0.employee.employee_code', 'EMP000201')
         ->assertJsonPath('data.0.employee.full_name', 'Visible Sok')
         ->assertJsonPath('data.0.roles.0.name', 'employee')
@@ -57,8 +59,244 @@ it('lists admin users with filters and shaped responses', function () {
     $this->getJson('/api/users/roles')
         ->assertOk()
         ->assertJsonPath('data.0.name', 'admin')
+        ->assertJsonPath('data.0.permissions.0', 'attendance.audit.view')
         ->assertJsonFragment(['name' => 'employee'])
         ->assertJsonFragment(['name' => 'hr']);
+});
+
+it('lists permissions for assignment ui using permission-based access', function () {
+    collect(PermissionName::cases())->each(function (PermissionName $permission): void {
+        Permission::query()->firstOrCreate(
+            ['name' => $permission->value, 'guard_name' => 'api'],
+            ['description' => $permission->description()],
+        );
+    });
+
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(PermissionName::PermissionView->value);
+
+    $customPermission = Permission::query()->create([
+        'name' => 'zeta.permission',
+        'description' => 'Custom permission for sorting checks',
+        'guard_name' => 'api',
+    ]);
+
+    Passport::actingAs($actor);
+
+    $response = $this->getJson('/api/permissions')
+        ->assertOk();
+
+    expect($response->json())->toBeArray()
+        ->and($response->json('0.id'))->toBeInt()
+        ->and($response->json('0.name'))->toBe('attendance.audit.view')
+        ->and($response->json('0.description'))->toBeString()
+        ->and($response->json('0.module'))->toBe('attendance')
+        ->and($response->json('0.module_label'))->toBe('Attendance')
+        ->and($response->json('0.system_defined'))->toBeTrue()
+        ->and($response->json('0.recommended_roles'))->toBeArray()
+        ->and(collect($response->json())->pluck('name')->all())->toBe(
+            collect($response->json())->pluck('name')->sort()->values()->all()
+        )
+        ->and(collect($response->json())->pluck('name')->unique()->values()->all())->toBe(
+            collect($response->json())->pluck('name')->values()->all()
+        )
+        ->and(collect($response->json())->pluck('name')->all())->toContain($customPermission->name)
+        ->and(collect($response->json())->firstWhere('name', $customPermission->name)['description'] ?? null)->toBe($customPermission->description)
+        ->and(collect($response->json())->firstWhere('name', $customPermission->name)['module'] ?? null)->toBe('custom')
+        ->and(collect($response->json())->firstWhere('name', $customPermission->name)['recommended_roles'] ?? null)->toBe([])
+        ->and(collect($response->json())->firstWhere('name', $customPermission->name)['system_defined'] ?? null)->toBeFalse()
+        ->and(collect($response->json())->pluck('name')->all())->toContain(PermissionName::PermissionView->value)
+        ->and(collect($response->json())->pluck('name')->all())->not->toContain('dashboard.view.admin')
+        ->and(collect($response->json())->pluck('name')->all())->not->toContain('dashboard.view.hr')
+        ->and(collect($response->json())->pluck('name')->all())->not->toContain('dashboard.view.self');
+});
+
+it('returns a user access summary with role, direct, and effective permissions', function () {
+    $admin = createUserManagementActor('admin');
+    $employeeRole = Role::query()->firstOrCreate(
+        ['name' => 'employee'],
+        ['description' => 'Employee'],
+    );
+    $managedUser = createManagedUser(
+        [$employeeRole],
+        ['name' => 'Access User', 'email' => 'access.user@example.com'],
+        ['employee_code' => 'EMP000250', 'first_name' => 'Access', 'last_name' => 'Person'],
+    );
+
+    $managedUser->givePermissionTo(PermissionName::LeaveApproveHr->value);
+
+    Passport::actingAs($admin);
+
+    $this->getJson("/api/users/{$managedUser->id}/access")
+        ->assertOk()
+        ->assertJsonPath('id', $managedUser->id)
+        ->assertJsonPath('name', 'Access Person')
+        ->assertJsonPath('roles.0.name', 'employee')
+        ->assertJsonPath('direct_permissions.0', PermissionName::LeaveApproveHr->value)
+        ->assertJsonFragment(['role_permissions' => [
+            'attendance.correction.request',
+            'attendance.export',
+            'attendance.missing.request',
+            'attendance.record',
+            'attendance.summary.self',
+            'attendance.view',
+            'attendance.view.self',
+            'employee.view',
+            'employee.view.self',
+            'leave.balance.view.self',
+            'leave.request.cancel.self',
+            'leave.request.create',
+            'leave.request.view.self',
+            'leave.type.view',
+            'location.view',
+        ]])
+        ->assertJsonFragment(['effective_permissions' => [
+            'attendance.correction.request',
+            'attendance.export',
+            'attendance.missing.request',
+            'attendance.record',
+            'attendance.summary.self',
+            'attendance.view',
+            'attendance.view.self',
+            'employee.view',
+            'employee.view.self',
+            'leave.approve.hr',
+            'leave.balance.view.self',
+            'leave.request.cancel.self',
+            'leave.request.create',
+            'leave.request.view.self',
+            'leave.type.view',
+            'location.view',
+        ]]);
+});
+
+it('syncs user roles and direct permissions through the admin access endpoints', function () {
+    $admin = createUserManagementActor('admin');
+    $targetUser = User::factory()->create([
+        'name' => 'Target User',
+        'email' => 'target.user@example.com',
+    ]);
+    Role::query()->firstOrCreate(
+        ['name' => 'employee'],
+        ['description' => 'Employee'],
+    );
+    Role::query()->firstOrCreate(
+        ['name' => 'hr'],
+        ['description' => 'HR'],
+    );
+
+    Passport::actingAs($admin);
+
+    $this->patchJson("/api/users/{$targetUser->id}/roles", [
+        'roles' => ['employee'],
+    ])
+        ->assertOk()
+        ->assertJsonPath('roles.0.name', 'employee')
+        ->assertJsonPath('direct_permissions', []);
+
+    $permissionResponse = $this->patchJson("/api/users/{$targetUser->id}/permissions", [
+        'permissions' => [PermissionName::LeaveApproveHr->value],
+    ]);
+
+    $permissionResponse
+        ->assertOk()
+        ->assertJsonPath('direct_permissions.0', PermissionName::LeaveApproveHr->value);
+
+    expect($permissionResponse->json('effective_permissions'))->toContain(PermissionName::LeaveApproveHr->value);
+
+    $this->patchJson("/api/users/{$targetUser->id}/access", [
+        'roles' => ['hr'],
+        'permissions' => [PermissionName::AuditLogView->value],
+    ])
+        ->assertOk()
+        ->assertJsonPath('roles.0.name', 'hr')
+        ->assertJsonPath('direct_permissions.0', PermissionName::AuditLogView->value)
+        ->assertJsonFragment(['effective_permissions' => collect([
+            PermissionName::AttendanceCorrectionRequest->value,
+            PermissionName::AttendanceExport->value,
+            PermissionName::AttendanceExportAny->value,
+            PermissionName::AttendanceManage->value,
+            PermissionName::AttendanceMissingRequest->value,
+            PermissionName::AttendanceRecord->value,
+            PermissionName::AttendanceSummaryAny->value,
+            PermissionName::AttendanceSummarySelf->value,
+            PermissionName::AttendanceView->value,
+            PermissionName::AttendanceViewAny->value,
+            PermissionName::AttendanceViewSelf->value,
+            PermissionName::AuditLogView->value,
+            PermissionName::EmployeeExport->value,
+            PermissionName::EmployeeManage->value,
+            PermissionName::EmployeeUserLinkView->value,
+            PermissionName::EmployeeView->value,
+            PermissionName::EmployeeViewAny->value,
+            PermissionName::LeaveApproveHr->value,
+            PermissionName::LeaveBalanceViewSelf->value,
+            PermissionName::LeaveRequestCancelSelf->value,
+            PermissionName::LeaveRequestCreate->value,
+            PermissionName::LeaveRequestViewAny->value,
+            PermissionName::LeaveRequestViewSelf->value,
+            PermissionName::LeaveTypeView->value,
+            PermissionName::LocationView->value,
+            PermissionName::PositionView->value,
+        ])->sort()->values()->all()]);
+
+    $targetUser->refresh();
+
+    expect($targetUser->getRoleNames()->all())->toBe(['hr'])
+        ->and($targetUser->getDirectPermissions()->pluck('name')->all())->toBe([PermissionName::AuditLogView->value]);
+});
+
+it('validates managed role names when syncing user access', function () {
+    $admin = createUserManagementActor('admin');
+    $targetUser = User::factory()->create();
+
+    Passport::actingAs($admin);
+
+    $this->patchJson("/api/users/{$targetUser->id}/roles", [
+        'roles' => ['auditor'],
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['roles.0']);
+});
+
+it('rejects assigning more than one role through access management endpoints', function () {
+    $admin = createUserManagementActor('admin');
+    $targetUser = User::factory()->create();
+    Role::query()->firstOrCreate(
+        ['name' => 'employee'],
+        ['description' => 'Employee'],
+    );
+    Role::query()->firstOrCreate(
+        ['name' => 'hr'],
+        ['description' => 'HR'],
+    );
+
+    Passport::actingAs($admin);
+
+    $this->patchJson("/api/users/{$targetUser->id}/roles", [
+        'roles' => ['employee', 'hr'],
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['roles']);
+
+    $this->patchJson("/api/users/{$targetUser->id}/access", [
+        'roles' => ['employee', 'hr'],
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['roles']);
+});
+
+it('prevents removing the last access administrator', function () {
+    $admin = createUserManagementActor('admin');
+
+    Passport::actingAs($admin);
+
+    $this->patchJson("/api/users/{$admin->id}/access", [
+        'roles' => [],
+        'permissions' => [],
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['access']);
 });
 
 it('allows admin to create and update users with role assignment', function () {
@@ -98,7 +336,7 @@ it('allows admin to create and update users with role assignment', function () {
 
     $createResponse
         ->assertCreated()
-        ->assertJsonPath('name', 'Account User')
+        ->assertJsonPath('name', 'Create Target')
         ->assertJsonPath('employee.id', $firstEmployee->id)
         ->assertJsonPath('roles.0.name', 'employee');
 
@@ -106,21 +344,102 @@ it('allows admin to create and update users with role assignment', function () {
         'name' => 'Account User Updated',
         'email' => 'account.user.updated@example.com',
         'employee_id' => $secondEmployee->id,
-        'role_ids' => [$employeeRole->id, $hrRole->id],
+        'role_ids' => [$hrRole->id],
     ])
         ->assertOk()
-        ->assertJsonPath('name', 'Account User Updated')
+        ->assertJsonPath('name', 'Update Target')
         ->assertJsonPath('employee.id', $secondEmployee->id)
-        ->assertJsonCount(2, 'roles')
-        ->assertJsonFragment(['name' => 'employee'])
+        ->assertJsonCount(1, 'roles')
         ->assertJsonFragment(['name' => 'hr']);
 
     $user = User::query()->with(['roles', 'employee'])->findOrFail($userId);
 
     expect($user->employee?->id)->toBe($secondEmployee->id)
-        ->and($user->roles->pluck('name')->sort()->values()->all())->toBe(['employee', 'hr'])
+        ->and($user->getRawOriginal('name'))->toBe('Update Target')
+        ->and($user->roles->pluck('name')->values()->all())->toBe(['hr'])
         ->and($firstEmployee->fresh()?->user_id)->toBeNull()
         ->and($secondEmployee->fresh()?->user_id)->toBe($userId);
+});
+
+it('rejects assigning more than one role when creating or updating a user', function () {
+    $admin = createUserManagementActor('admin');
+    $employeeRole = Role::query()->firstOrCreate(
+        ['name' => 'employee'],
+        ['description' => 'Employee'],
+    );
+    $hrRole = Role::query()->firstOrCreate(
+        ['name' => 'hr'],
+        ['description' => 'HR'],
+    );
+    $employee = createStandaloneEmployee([
+        'employee_code' => 'EMP000303',
+    ]);
+    $managedUser = User::factory()->create([
+        'name' => 'Existing User',
+        'email' => 'existing.user@example.com',
+    ]);
+
+    Passport::actingAs($admin);
+
+    $this->postJson('/api/users', [
+        'name' => 'Account User',
+        'email' => 'multi.role.user@example.com',
+        'password' => 'Password123!',
+        'employee_id' => $employee->id,
+        'role_ids' => [$employeeRole->id, $hrRole->id],
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['role_ids']);
+
+    $this->putJson("/api/users/{$managedUser->id}", [
+        'name' => 'Existing User',
+        'email' => 'existing.user@example.com',
+        'role_ids' => [$employeeRole->id, $hrRole->id],
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['role_ids']);
+});
+
+it('allows admin to create and update standalone users without employee links', function () {
+    $admin = createUserManagementActor('admin');
+    $adminRole = Role::query()->firstOrCreate(
+        ['name' => 'admin'],
+        ['description' => 'Admin'],
+    );
+
+    Passport::actingAs($admin);
+
+    $createResponse = $this->postJson('/api/users', [
+        'name' => 'System Admin',
+        'email' => 'system.admin@example.com',
+        'password' => 'Password123!',
+        'role_ids' => [$adminRole->id],
+    ]);
+
+    $userId = $createResponse->json('id');
+
+    $createResponse
+        ->assertCreated()
+        ->assertJsonPath('name', 'System Admin')
+        ->assertJsonPath('employee_id', null)
+        ->assertJsonPath('roles.0.name', 'admin')
+        ->assertJsonMissingPath('employee.id');
+
+    $this->putJson("/api/users/{$userId}", [
+        'name' => 'System Admin Updated',
+        'email' => 'system.admin.updated@example.com',
+        'role_ids' => [$adminRole->id],
+    ])
+        ->assertOk()
+        ->assertJsonPath('name', 'System Admin Updated')
+        ->assertJsonPath('employee_id', null)
+        ->assertJsonPath('roles.0.name', 'admin')
+        ->assertJsonMissingPath('employee.id');
+
+    $user = User::query()->with(['roles', 'employee'])->findOrFail($userId);
+
+    expect($user->employee)->toBeNull()
+        ->and($user->roles->pluck('name')->all())->toBe(['admin']);
 });
 
 it('deletes managed users and unlinks their employee', function () {
@@ -151,6 +470,10 @@ it('forbids non admin users from managing users', function () {
 
     $this->getJson('/api/users')->assertForbidden();
     $this->getJson('/api/users/roles')->assertForbidden();
+    $this->getJson('/api/permissions')->assertForbidden();
+    $this->getJson("/api/users/{$hr->id}/access")->assertForbidden();
+    $this->patchJson("/api/users/{$hr->id}/roles", ['roles' => ['employee']])->assertForbidden();
+    $this->patchJson("/api/users/{$hr->id}/permissions", ['permissions' => [PermissionName::AuditLogView->value]])->assertForbidden();
 });
 
 function createUserManagementActor(string $roleName): User
@@ -163,7 +486,7 @@ function createUserManagementActor(string $roleName): User
 
     $user->roles()->syncWithoutDetaching([$role->id]);
 
-    return $user->fresh('roles');
+    return $user->fresh('roles.permissions');
 }
 
 /**
@@ -179,7 +502,7 @@ function createManagedUser(array $roles, array $userOverrides = [], array $emplo
     $user->roles()->sync(collect($roles)->pluck('id')->all());
     $user->setRelation('employee', $employee);
 
-    return $user->fresh(['employee', 'roles']);
+    return $user->fresh(['employee', 'roles.permissions', 'permissions']);
 }
 
 /**

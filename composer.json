@@ -14,7 +14,8 @@
         "laravel/passport": "^13.0",
         "laravel/tinker": "^3.0",
         "league/flysystem-aws-s3-v3": "^3.32",
-        "spatie/laravel-activitylog": "^4.10"
+        "spatie/laravel-activitylog": "^4.10",
+        "spatie/laravel-permission": "^7.3"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

@@ -9,6 +9,7 @@ use App\EmployeeGender;
 use App\EmployeeIdType;
 use App\EmployeeStatus;
 use App\EmploymentType;
+use App\PermissionName;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -29,7 +30,9 @@ class UpdateEmployeeRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user('api') ?? $this->user();
+
+        return $user?->can(PermissionName::EmployeeManage->value) ?? false;
     }
 
     /**

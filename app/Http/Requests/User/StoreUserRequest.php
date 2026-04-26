@@ -32,13 +32,13 @@ class StoreUserRequest extends FormRequest
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class, 'email')],
             'password' => ['required', 'string', Password::default()],
             'employee_id' => [
-                'required',
+                'nullable',
                 'integer',
                 Rule::exists(Employee::class, 'id')->where(
                     fn ($query) => $query->whereNull('user_id')
                 ),
             ],
-            'role_ids' => ['sometimes', 'array'],
+            'role_ids' => ['sometimes', 'array', 'max:1'],
             'role_ids.*' => ['integer', 'distinct', Rule::exists(Role::class, 'id')],
         ];
     }

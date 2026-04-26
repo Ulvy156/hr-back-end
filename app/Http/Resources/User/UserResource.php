@@ -19,7 +19,7 @@ class UserResource extends JsonResource
     {
         return [
             'id' => $this->resource->id,
-            'name' => $this->resource->name,
+            'name' => $this->resource->displayName(),
             'email' => $this->resource->email,
             'email_verified_at' => $this->resource->email_verified_at?->toIso8601String(),
             'employee_id' => $this->resource->employee?->id,

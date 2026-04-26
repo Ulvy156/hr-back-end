@@ -33,7 +33,6 @@ class EmployeeProfilePhotoService
         try {
             DB::transaction(function () use ($employee, $uploadedPhotoPath): void {
                 $employee->forceFill([
-                    'profile_photo' => $uploadedPhotoPath,
                     'profile_photo_path' => $uploadedPhotoPath,
                 ])->save();
             });

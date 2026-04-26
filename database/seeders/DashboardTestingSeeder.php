@@ -184,10 +184,10 @@ class DashboardTestingSeeder extends Seeder
 
         $role = Role::query()->firstOrCreate(
             ['name' => 'employee'],
-            ['description' => 'Regular employee']
+            ['description' => 'Regular employee', 'guard_name' => 'api']
         );
 
-        $user->roles()->syncWithoutDetaching([$role->id]);
+        $user->assignRole($role);
 
         EmployeePosition::query()->updateOrCreate(
             [

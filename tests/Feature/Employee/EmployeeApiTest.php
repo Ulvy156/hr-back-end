@@ -235,7 +235,8 @@ it('creates employees with nested emergency contacts educations and employee pos
     expect($employee->emergencyContacts()->count())->toBe(2)
         ->and($employee->educations()->count())->toBe(1)
         ->and($employee->employeePositions()->count())->toBe(2)
-        ->and($employee->current_position_id)->toBe($position->id);
+        ->and($employee->current_position_id)->toBe($position->id)
+        ->and($user->fresh()?->getRawOriginal('name'))->toBe('Dara Lim');
 });
 
 it('updates soft deletes and restores employees for admin users', function () {
@@ -287,7 +288,8 @@ it('updates soft deletes and restores employees for admin users', function () {
         ->assertNoContent();
 
     expect(Employee::query()->find($employee->id))->toBeNull()
-        ->and(Employee::withTrashed()->find($employee->id)?->deleted_at)->not->toBeNull();
+        ->and(Employee::withTrashed()->find($employee->id)?->deleted_at)->not->toBeNull()
+        ->and($employee->user()->first()?->getRawOriginal('name'))->toBe('New Name');
 
     $this->postJson("/api/employees/{$employee->id}/restore")
         ->assertOk()

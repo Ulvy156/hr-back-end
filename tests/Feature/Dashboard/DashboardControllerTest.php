@@ -7,6 +7,7 @@ use App\Models\LeaveRequest;
 use App\Models\Position;
 use App\Models\Role;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Passport\Passport;
 
@@ -16,6 +17,11 @@ beforeEach(function (): void {
     config()->set('dashboard.work_start_time', '08:00:00');
     config()->set('dashboard.employee_recent_limit', 5);
     config()->set('dashboard.workforce_recent_limit', 10);
+    Carbon::setTestNow(Carbon::parse('2026-04-22 09:00:00'));
+});
+
+afterEach(function (): void {
+    Carbon::setTestNow();
 });
 
 it('returns an employee-scoped dashboard summary', function () {
@@ -32,9 +38,9 @@ it('returns an employee-scoped dashboard summary', function () {
     Attendance::query()->create([
         'employee_id' => $user->employee->id,
         'edited_by' => $user->id,
-        'attendance_date' => now()->subDay()->toDateString(),
-        'check_in' => now()->subDay()->setTime(8, 0),
-        'check_out' => now()->subDay()->setTime(17, 0),
+        'attendance_date' => dashboardWeekReferenceDate()->toDateString(),
+        'check_in' => dashboardWeekReferenceDate()->copy()->setTime(8, 0),
+        'check_out' => dashboardWeekReferenceDate()->copy()->setTime(17, 0),
         'status' => 'present',
     ]);
 
@@ -148,6 +154,32 @@ it('returns an admin dashboard with user role aggregates', function () {
         ->toContain('manage_users', 'manage_employees', 'correct_attendance');
 });
 
+it('returns a manager dashboard using the self dashboard shape', function () {
+    $managerUser = createDashboardUser('manager');
+
+    Attendance::query()->create([
+        'employee_id' => $managerUser->employee->id,
+        'edited_by' => $managerUser->id,
+        'attendance_date' => now()->toDateString(),
+        'check_in' => now()->setTime(8, 10),
+        'status' => 'present',
+    ]);
+
+    Passport::actingAs($managerUser);
+
+    $response = $this->getJson('/api/dashboard');
+
+    $response
+        ->assertOk()
+        ->assertJsonPath('role', 'manager')
+        ->assertJsonPath('summary.todayAttendanceStatus', 'checked_in')
+        ->assertJsonPath('summary.nextAction', 'scan_out');
+
+    expect($response->json('summary'))->not->toHaveKey('totalEmployees')
+        ->and($response->json('extra'))->toBeArray()
+        ->and($response->json('extra'))->toBeEmpty();
+});
+
 function createDashboardUser(?string $role = null, string $employeeStatus = 'active'): User
 {
     $department = Department::query()->create([
@@ -182,4 +214,15 @@ function createDashboardUser(?string $role = null, string $employeeStatus = 'act
     }
 
     return $user->fresh('employee', 'roles');
+}
+
+function dashboardWeekReferenceDate(): Carbon
+{
+    $referenceDate = now()->copy()->subDays(2);
+
+    if ($referenceDate->lt(now()->copy()->startOfWeek())) {
+        return now()->copy()->startOfWeek()->addDay();
+    }
+
+    return $referenceDate;
 }

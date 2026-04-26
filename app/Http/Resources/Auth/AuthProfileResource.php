@@ -19,7 +19,7 @@ class AuthProfileResource extends JsonResource
     {
         return [
             'id' => $this->resource->id,
-            'name' => $this->resource->name,
+            'name' => $this->resource->displayName(),
             'email' => $this->resource->email,
             'email_verified_at' => $this->resource->email_verified_at?->toIso8601String(),
             'roles' => $this->when(
@@ -33,6 +33,11 @@ class AuthProfileResource extends JsonResource
                     ->values()
                     ->all(),
             ),
+            'permissions' => $this->resource->getAllPermissions()
+                ->pluck('name')
+                ->sort()
+                ->values()
+                ->all(),
             'employee' => $this->when(
                 $this->resource->relationLoaded('employee') && $this->resource->employee !== null,
                 fn (): array => EmployeeResource::make($this->resource->employee)->resolve($request),

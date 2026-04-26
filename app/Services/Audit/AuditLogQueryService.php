@@ -256,7 +256,7 @@ class AuditLogQueryService
         ];
 
         if ($causer instanceof User) {
-            $payload['name'] = $causer->name;
+            $payload['name'] = $causer->displayName();
             $payload['email'] = $causer->email;
         }
 
@@ -293,7 +293,7 @@ class AuditLogQueryService
     private function subjectLabel(Model $subject): ?string
     {
         if ($subject instanceof User) {
-            return $subject->name;
+            return $subject->displayName();
         }
 
         if ($subject instanceof Employee) {

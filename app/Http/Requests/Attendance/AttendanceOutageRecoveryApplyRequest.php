@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Attendance;
 
+use App\PermissionName;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -10,7 +11,9 @@ class AttendanceOutageRecoveryApplyRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user('api') !== null;
+        $user = $this->user('api') ?? $this->user();
+
+        return $user?->can(PermissionName::AttendanceManage->value) ?? false;
     }
 
     /**

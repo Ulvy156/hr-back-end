@@ -1,1107 +1,1133 @@
 {
-  "info": {
-    "_postman_id": "a21c2df9-3f8f-4d4e-8c6f-employee-api-collection",
-    "name": "Employee API",
-    "description": "Postman collection for the Employee module backend APIs.",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-  },
-  "variable": [
-    {
-      "key": "base_url",
-      "value": "http://localhost:8000/api"
-    },
-    {
-      "key": "email",
-      "value": "admin@example.com"
-    },
-    {
-      "key": "password",
-      "value": "password"
-    },
-    {
-      "key": "access_token",
-      "value": ""
-    },
-    {
-      "key": "employee_id",
-      "value": "1"
-    },
-    {
-      "key": "address_id",
-      "value": "1"
-    },
-    {
-      "key": "contact_id",
-      "value": "1"
-    },
-    {
-      "key": "employee_position_id",
-      "value": "1"
-    },
-    {
-      "key": "user_id",
-      "value": "2"
-    },
-    {
-      "key": "department_id",
-      "value": "1"
-    },
-    {
-      "key": "branch_id",
-      "value": "1"
-    },
-    {
-      "key": "current_position_id",
-      "value": "1"
-    },
-    {
-      "key": "shift_id",
-      "value": "1"
-    },
-    {
-      "key": "manager_id",
-      "value": "1"
-    },
-    {
-      "key": "province_id",
-      "value": "1"
-    },
-    {
-      "key": "district_id",
-      "value": "1"
-    },
-    {
-      "key": "commune_id",
-      "value": "1"
-    },
-    {
-      "key": "village_id",
-      "value": "1"
-    }
-  ],
-  "auth": {
-    "type": "bearer",
-    "bearer": [
-      {
-        "key": "token",
-        "value": "{{access_token}}",
-        "type": "string"
-      }
-    ]
-  },
-  "item": [
-    {
-      "name": "Auth",
-      "item": [
-        {
-          "name": "Login",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const data = pm.response.json();",
-                  "if (data.access_token) {",
-                  "    pm.collectionVariables.set('access_token', data.access_token);",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "noauth"
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/auth/login",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "auth",
-                "login"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Employees",
-      "item": [
-        {
-          "name": "List Positions",
-          "request": {
-            "description": "List available positions for HR/Admin dropdowns.\n\nOptional query params:\n- search\n\nSample response:\n{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"title\": \"Analyst\"\n    },\n    {\n      \"id\": 2,\n      \"title\": \"Coordinator\"\n    }\n  ]\n}",
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/positions?search=analyst",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "positions"
-              ],
-              "query": [
-                {
-                  "key": "search",
-                  "value": "analyst"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "List Provinces",
-          "request": {
-            "description": "List provinces for address dropdowns.\n\nOptional query params:\n- search\n\nSample response:\n{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"source_id\": 1,\n      \"code\": \"01\",\n      \"name_kh\": \"ភ្នំពេញ\",\n      \"name_en\": \"Phnom Penh\"\n    }\n  ]\n}",
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/locations/provinces?search=phnom",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "locations",
-                "provinces"
-              ],
-              "query": [
-                {
-                  "key": "search",
-                  "value": "phnom"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "List Districts",
-          "request": {
-            "description": "List districts for address dropdowns.\n\nOptional query params:\n- province_id\n- search\n\nSample response:\n{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"source_id\": 101,\n      \"code\": \"101\",\n      \"province_id\": 1,\n      \"name_kh\": \"ចំការមន\",\n      \"name_en\": \"Chamkar Mon\",\n      \"type\": \"ក្រុង\"\n    }\n  ]\n}",
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/locations/districts?province_id={{province_id}}&search=chamkar",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "locations",
-                "districts"
-              ],
-              "query": [
-                {
-                  "key": "province_id",
-                  "value": "{{province_id}}"
-                },
-                {
-                  "key": "search",
-                  "value": "chamkar"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "List Communes",
-          "request": {
-            "description": "List communes for address dropdowns.\n\nOptional query params:\n- district_id\n- search\n\nSample response:\n{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"source_id\": 10101,\n      \"code\": \"10101\",\n      \"district_id\": 1,\n      \"name_kh\": \"ទន្លេបាសាក់\",\n      \"name_en\": \"Tonle Basak\"\n    }\n  ]\n}",
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/locations/communes?district_id={{district_id}}&search=tonle",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "locations",
-                "communes"
-              ],
-              "query": [
-                {
-                  "key": "district_id",
-                  "value": "{{district_id}}"
-                },
-                {
-                  "key": "search",
-                  "value": "tonle"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "List Villages",
-          "request": {
-            "description": "List villages for address dropdowns.\n\nOptional query params:\n- commune_id\n- search\n\nSample response:\n{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"source_id\": 1010101,\n      \"code\": \"1010101\",\n      \"commune_id\": 1,\n      \"name_kh\": \"ភូមិ១\",\n      \"name_en\": \"Village 1\",\n      \"is_not_active\": false\n    }\n  ]\n}",
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/locations/villages?commune_id={{commune_id}}&search=village 1",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "locations",
-                "villages"
-              ],
-              "query": [
-                {
-                  "key": "commune_id",
-                  "value": "{{commune_id}}"
-                },
-                {
-                  "key": "search",
-                  "value": "village 1"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "List",
-          "request": {
-            "description": "List employees with pagination.\n\nSample response:\n{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"employee_code\": \"EMP000001\",\n      \"first_name\": \"Emma\",\n      \"last_name\": \"Employee\",\n      \"full_name\": \"Emma Employee\",\n      \"email\": \"emma.employee@example.com\",\n      \"phone\": \"012345678\",\n      \"profile_photo\": null,\n      \"profile_photo_path\": null,\n      \"hire_date\": \"2026-04-01\",\n      \"employment_type\": \"full_time\",\n      \"status\": \"active\",\n      \"department\": { \"id\": 1, \"name\": \"Operations\" },\n      \"current_position\": { \"id\": 1, \"title\": \"Officer\" },\n      \"position\": { \"id\": 1, \"title\": \"Officer\" },\n      \"manager\": { \"id\": 2, \"name\": \"Helen HR\" },\n      \"branch\": { \"id\": 1, \"name\": \"HQ\", \"code\": \"HQ\" },\n      \"shift\": { \"id\": 1, \"name\": \"Morning\", \"code\": \"MORNING\", \"start_time\": \"08:00:00\", \"end_time\": \"17:00:00\", \"late_grace_minutes\": 0 },\n      \"created_at\": \"2026-04-05T10:00:00+07:00\",\n      \"updated_at\": \"2026-04-05T10:00:00+07:00\",\n      \"deleted_at\": null\n    }\n  ],\n  \"links\": {},\n  \"meta\": {}\n}",
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/employees?page=1&per_page=10",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "employees"
-              ],
-              "query": [
-                {
-                  "key": "page",
-                  "value": "1"
-                },
-                {
-                  "key": "per_page",
-                  "value": "10"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "Filtered List",
-          "request": {
-            "description": "Filter employees by search, status, org structure, employment type, hire date, sorting, and includes.\n\nSample query:\nsearch=Emma&status=active&department_id=1&branch_id=1&current_position_id=1&manager_id=2&employment_type=full_time&hire_date_from=2026-04-01&hire_date_to=2026-04-30&sort_by=first_name&sort_direction=asc&include=addresses,educations,emergency_contacts,employee_positions",
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/employees?search=Emma&status=active&department_id={{department_id}}&branch_id={{branch_id}}&current_position_id={{current_position_id}}&manager_id={{manager_id}}&employment_type=full_time&hire_date_from=2026-04-01&hire_date_to=2026-04-30&sort_by=first_name&sort_direction=asc&per_page=20&include=addresses,educations,emergency_contacts,employee_positions",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "employees"
-              ],
-              "query": [
-                {
-                  "key": "search",
-                  "value": "Emma"
-                },
-                {
-                  "key": "status",
-                  "value": "active"
-                },
-                {
-                  "key": "department_id",
-                  "value": "{{department_id}}"
-                },
-                {
-                  "key": "branch_id",
-                  "value": "{{branch_id}}"
-                },
-                {
-                  "key": "current_position_id",
-                  "value": "{{current_position_id}}"
-                },
-                {
-                  "key": "manager_id",
-                  "value": "{{manager_id}}"
-                },
-                {
-                  "key": "employment_type",
-                  "value": "full_time"
-                },
-                {
-                  "key": "hire_date_from",
-                  "value": "2026-04-01"
-                },
-                {
-                  "key": "hire_date_to",
-                  "value": "2026-04-30"
-                },
-                {
-                  "key": "sort_by",
-                  "value": "first_name"
-                },
-                {
-                  "key": "sort_direction",
-                  "value": "asc"
-                },
-                {
-                  "key": "per_page",
-                  "value": "20"
-                },
-                {
-                  "key": "include",
-                  "value": "addresses,educations,emergency_contacts,employee_positions"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "Export Employees",
-          "request": {
-            "description": "Download an Excel export of employees. HR only.\n\nThis uses the same filters as the employee list API and returns an .xlsx file download.\n\nExported columns:\n- Employee Code\n- Full Name\n- Email\n- Phone\n- Department\n- Current Position\n- Manager\n- Hire Date\n- Employment Type\n- Status",
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/employees/export/excel",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "employees",
-                "export",
-                "excel"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Export Employees (Filtered)",
-          "request": {
-            "description": "Download a filtered Excel export of employees using the exact same query params as GET /employees.",
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/employees/export/excel?search=Emma&status=active&department_id={{department_id}}&branch_id={{branch_id}}&current_position_id={{current_position_id}}&manager_id={{manager_id}}&employment_type=full_time&hire_date_from=2026-04-01&hire_date_to=2026-04-30&sort_by=first_name&sort_direction=asc",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "employees",
-                "export",
-                "excel"
-              ],
-              "query": [
-                {
-                  "key": "search",
-                  "value": "Emma"
-                },
-                {
-                  "key": "status",
-                  "value": "active"
-                },
-                {
-                  "key": "department_id",
-                  "value": "{{department_id}}"
-                },
-                {
-                  "key": "branch_id",
-                  "value": "{{branch_id}}"
-                },
-                {
-                  "key": "current_position_id",
-                  "value": "{{current_position_id}}"
-                },
-                {
-                  "key": "manager_id",
-                  "value": "{{manager_id}}"
-                },
-                {
-                  "key": "employment_type",
-                  "value": "full_time"
-                },
-                {
-                  "key": "hire_date_from",
-                  "value": "2026-04-01"
-                },
-                {
-                  "key": "hire_date_to",
-                  "value": "2026-04-30"
-                },
-                {
-                  "key": "sort_by",
-                  "value": "first_name"
-                },
-                {
-                  "key": "sort_direction",
-                  "value": "asc"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "Create",
-          "request": {
-            "description": "Create a new employee and optionally store all related employee info in one request: structured addresses, emergency contacts, educations, and employee position history.\n\nSample success response:\n{\n  \"id\": 12,\n  \"user_id\": 2,\n  \"employee_code\": \"EMP000012\",\n  \"first_name\": \"Dara\",\n  \"last_name\": \"Lim\",\n  \"full_name\": \"Dara Lim\",\n  \"email\": \"dara.lim@example.com\",\n  \"phone\": \"010222333\",\n  \"hire_date\": \"2026-04-01\",\n  \"status\": \"active\",\n  \"branch\": { \"id\": 1, \"name\": \"HQ\", \"code\": \"HQ\" },\n  \"shift\": { \"id\": 1, \"name\": \"Day Shift\", \"code\": \"DAY\", \"start_time\": \"08:00:00\", \"end_time\": \"17:00:00\", \"late_grace_minutes\": 0 },\n  \"current_position\": { \"id\": 1, \"title\": \"Support Agent\" },\n  \"addresses\": [\n    {\n      \"id\": 1,\n      \"address_type\": \"current\",\n      \"province_id\": 1,\n      \"district_id\": 1,\n      \"commune_id\": 1,\n      \"village_id\": 1,\n      \"address_line\": \"Apartment 10B\",\n      \"street\": \"Street 271\",\n      \"house_no\": \"10B\",\n      \"postal_code\": \"12000\",\n      \"note\": \"Near the market\",\n      \"is_primary\": true,\n      \"province\": { \"id\": 1, \"code\": \"01\", \"name_kh\": \"ភ្នំពេញ\", \"name_en\": \"Phnom Penh\" },\n      \"district\": { \"id\": 1, \"code\": \"101\", \"name_kh\": \"ចំការមន\", \"name_en\": \"Chamkar Mon\", \"type\": \"ក្រុង\" },\n      \"commune\": { \"id\": 1, \"code\": \"10101\", \"name_kh\": \"ទន្លេបាសាក់\", \"name_en\": \"Tonle Basak\" },\n      \"village\": { \"id\": 1, \"code\": \"1010101\", \"name_kh\": \"ភូមិ១\", \"name_en\": \"Village 1\" }\n    }\n  ],\n  \"educations\": [\n    {\n      \"id\": 3,\n      \"institution_name\": \"Royal University of Phnom Penh\",\n      \"education_level\": \"bachelor\",\n      \"degree\": \"Bachelor of Management\"\n    }\n  ],\n  \"employee_positions\": [\n    {\n      \"id\": 9,\n      \"position_id\": 1,\n      \"position\": { \"id\": 1, \"title\": \"Support Agent\" },\n      \"base_salary\": \"600.00\",\n      \"start_date\": \"2026-04-01\",\n      \"end_date\": null,\n      \"is_current\": true\n    }\n  ],\n  \"emergency_contacts\": [\n    {\n      \"id\": 1,\n      \"name\": \"Primary Contact\",\n      \"relationship\": \"spouse\",\n      \"phone\": \"011111111\",\n      \"email\": \"primary@example.com\",\n      \"is_primary\": true\n    }\n  ]\n}",
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"user_id\": {{user_id}},\n  \"department_id\": {{department_id}},\n  \"branch_id\": {{branch_id}},\n  \"current_position_id\": {{current_position_id}},\n  \"shift_id\": {{shift_id}},\n  \"manager_id\": {{manager_id}},\n  \"first_name\": \"Dara\",\n  \"last_name\": \"Lim\",\n  \"email\": \"dara.lim@example.com\",\n  \"phone\": \"010222333\",\n  \"date_of_birth\": \"1995-11-02\",\n  \"gender\": \"female\",\n  \"personal_phone\": \"099555666\",\n  \"personal_email\": \"dara.personal@example.com\",\n  \"addresses\": [\n    {\n      \"address_type\": \"current\",\n      \"province_id\": {{province_id}},\n      \"district_id\": {{district_id}},\n      \"commune_id\": {{commune_id}},\n      \"village_id\": {{village_id}},\n      \"address_line\": \"Apartment 10B\",\n      \"street\": \"Street 271\",\n      \"house_no\": \"10B\",\n      \"postal_code\": \"12000\",\n      \"note\": \"Near the market\",\n      \"is_primary\": true\n    },\n    {\n      \"address_type\": \"permanent\",\n      \"address_line\": \"Family home\",\n      \"street\": \"National Road 6\",\n      \"house_no\": \"22A\",\n      \"postal_code\": \"13000\"\n    }\n  ],\n  \"id_type\": \"national_id\",\n  \"id_number\": \"ID-2026-001\",\n  \"emergency_contact_name\": \"Legacy Contact\",\n  \"emergency_contact_relationship\": \"sibling\",\n  \"emergency_contact_phone\": \"012999999\",\n  \"hire_date\": \"2026-04-01\",\n  \"employment_type\": \"full_time\",\n  \"confirmation_date\": \"2026-07-01\",\n  \"status\": \"active\",\n  \"include\": [\"addresses\", \"emergency_contacts\", \"educations\", \"employee_positions\"],\n  \"emergency_contacts\": [\n    {\n      \"name\": \"Primary Contact\",\n      \"relationship\": \"spouse\",\n      \"phone\": \"011111111\",\n      \"email\": \"primary@example.com\",\n      \"is_primary\": true\n    },\n    {\n      \"name\": \"Second Contact\",\n      \"relationship\": \"parent\",\n      \"phone\": \"022222222\"\n    }\n  ],\n  \"educations\": [\n    {\n      \"institution_name\": \"Royal University of Phnom Penh\",\n      \"education_level\": \"bachelor\",\n      \"degree\": \"Bachelor of Management\",\n      \"field_of_study\": \"Management\",\n      \"graduation_year\": 2022\n    }\n  ],\n  \"employee_positions\": [\n    {\n      \"position_id\": {{current_position_id}},\n      \"base_salary\": 600,\n      \"start_date\": \"2026-04-01\",\n      \"end_date\": null\n    }\n  ]\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/employees",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "employees"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Show",
-          "request": {
-            "description": "Show a single employee. Employee role can view only their own employee record.\n\nSample response includes optional relations via include=addresses,educations,emergency_contacts,employee_positions,user.",
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/employees/{{employee_id}}?include=addresses,educations,emergency_contacts,employee_positions,user",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "employees",
-                "{{employee_id}}"
-              ],
-              "query": [
-                {
-                  "key": "include",
-                  "value": "addresses,educations,emergency_contacts,employee_positions,user"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "Employee Addresses",
-          "item": [
-            {
-              "name": "List Addresses",
-              "request": {
-                "description": "List employee addresses independently from the main employee update API.",
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Accept",
-                    "value": "application/json"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/employees/{{employee_id}}/addresses",
-                  "host": [
-                    "{{base_url}}"
-                  ],
-                  "path": [
-                    "employees",
-                    "{{employee_id}}",
-                    "addresses"
-                  ]
-                }
-              }
-            },
-            {
-              "name": "Create Address",
-              "request": {
-                "description": "Create one employee address independently.",
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Accept",
-                    "value": "application/json"
-                  },
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"address_type\": \"current\",\n  \"province_id\": {{province_id}},\n  \"district_id\": {{district_id}},\n  \"commune_id\": {{commune_id}},\n  \"village_id\": {{village_id}},\n  \"address_line\": \"Apartment 10B\",\n  \"street\": \"Street 271\",\n  \"house_no\": \"10B\",\n  \"postal_code\": \"12000\",\n  \"note\": \"Near the market\",\n  \"is_primary\": true\n}"
-                },
-                "url": {
-                  "raw": "{{base_url}}/employees/{{employee_id}}/addresses",
-                  "host": [
-                    "{{base_url}}"
-                  ],
-                  "path": [
-                    "employees",
-                    "{{employee_id}}",
-                    "addresses"
-                  ]
-                }
-              }
-            },
-            {
-              "name": "Update Address",
-              "request": {
-                "description": "Update one employee address independently.",
-                "method": "PUT",
-                "header": [
-                  {
-                    "key": "Accept",
-                    "value": "application/json"
-                  },
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"address_type\": \"temporary\",\n  \"province_id\": {{province_id}},\n  \"district_id\": {{district_id}},\n  \"commune_id\": {{commune_id}},\n  \"village_id\": {{village_id}},\n  \"address_line\": \"Rental room\",\n  \"street\": \"Street 2004\",\n  \"house_no\": \"3C\",\n  \"postal_code\": \"17100\",\n  \"note\": \"Three month lease\",\n  \"is_primary\": false\n}"
-                },
-                "url": {
-                  "raw": "{{base_url}}/employees/{{employee_id}}/addresses/{{address_id}}",
-                  "host": [
-                    "{{base_url}}"
-                  ],
-                  "path": [
-                    "employees",
-                    "{{employee_id}}",
-                    "addresses",
-                    "{{address_id}}"
-                  ]
-                }
-              }
-            },
-            {
-              "name": "Delete Address",
-              "request": {
-                "description": "Delete one employee address independently.",
-                "method": "DELETE",
-                "header": [
-                  {
-                    "key": "Accept",
-                    "value": "application/json"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/employees/{{employee_id}}/addresses/{{address_id}}",
-                  "host": [
-                    "{{base_url}}"
-                  ],
-                  "path": [
-                    "employees",
-                    "{{employee_id}}",
-                    "addresses",
-                    "{{address_id}}"
-                  ]
-                }
-              }
-            }
-          ]
-        },
-        {
-          "name": "Employee Emergency Contacts",
-          "item": [
-            {
-              "name": "List Emergency Contacts",
-              "request": {
-                "description": "List employee emergency contacts independently from the main employee update API.",
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Accept",
-                    "value": "application/json"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/employees/{{employee_id}}/emergency-contacts",
-                  "host": [
-                    "{{base_url}}"
-                  ],
-                  "path": [
-                    "employees",
-                    "{{employee_id}}",
-                    "emergency-contacts"
-                  ]
-                }
-              }
-            },
-            {
-              "name": "Create Emergency Contact",
-              "request": {
-                "description": "Create one employee emergency contact independently.",
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Accept",
-                    "value": "application/json"
-                  },
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"name\": \"Primary Contact\",\n  \"relationship\": \"spouse\",\n  \"phone\": \"011111111\",\n  \"email\": \"primary@example.com\",\n  \"is_primary\": true\n}"
-                },
-                "url": {
-                  "raw": "{{base_url}}/employees/{{employee_id}}/emergency-contacts",
-                  "host": [
-                    "{{base_url}}"
-                  ],
-                  "path": [
-                    "employees",
-                    "{{employee_id}}",
-                    "emergency-contacts"
-                  ]
-                }
-              }
-            },
-            {
-              "name": "Update Emergency Contact",
-              "request": {
-                "description": "Update one employee emergency contact independently.",
-                "method": "PUT",
-                "header": [
-                  {
-                    "key": "Accept",
-                    "value": "application/json"
-                  },
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"name\": \"Updated Contact\",\n  \"relationship\": \"guardian\",\n  \"phone\": \"077123456\",\n  \"email\": \"updated@example.com\",\n  \"is_primary\": false\n}"
-                },
-                "url": {
-                  "raw": "{{base_url}}/employees/{{employee_id}}/emergency-contacts/{{contact_id}}",
-                  "host": [
-                    "{{base_url}}"
-                  ],
-                  "path": [
-                    "employees",
-                    "{{employee_id}}",
-                    "emergency-contacts",
-                    "{{contact_id}}"
-                  ]
-                }
-              }
-            },
-            {
-              "name": "Delete Emergency Contact",
-              "request": {
-                "description": "Delete one employee emergency contact independently.",
-                "method": "DELETE",
-                "header": [
-                  {
-                    "key": "Accept",
-                    "value": "application/json"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/employees/{{employee_id}}/emergency-contacts/{{contact_id}}",
-                  "host": [
-                    "{{base_url}}"
-                  ],
-                  "path": [
-                    "employees",
-                    "{{employee_id}}",
-                    "emergency-contacts",
-                    "{{contact_id}}"
-                  ]
-                }
-              }
-            }
-          ]
-        },
-        {
-          "name": "Employee Positions",
-          "item": [
-            {
-              "name": "List Employee Positions",
-              "request": {
-                "description": "List employee position history independently from the main employee update API.",
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Accept",
-                    "value": "application/json"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/employees/{{employee_id}}/positions",
-                  "host": [
-                    "{{base_url}}"
-                  ],
-                  "path": [
-                    "employees",
-                    "{{employee_id}}",
-                    "positions"
-                  ]
-                }
-              }
-            },
-            {
-              "name": "Create Employee Position",
-              "request": {
-                "description": "Create one employee position record independently. Only one current position is allowed.",
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Accept",
-                    "value": "application/json"
-                  },
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"position_id\": {{current_position_id}},\n  \"base_salary\": 1200,\n  \"start_date\": \"2026-04-01\",\n  \"end_date\": null\n}"
-                },
-                "url": {
-                  "raw": "{{base_url}}/employees/{{employee_id}}/positions",
-                  "host": [
-                    "{{base_url}}"
-                  ],
-                  "path": [
-                    "employees",
-                    "{{employee_id}}",
-                    "positions"
-                  ]
-                }
-              }
-            },
-            {
-              "name": "Update Employee Position",
-              "request": {
-                "description": "Update one employee position record independently.",
-                "method": "PUT",
-                "header": [
-                  {
-                    "key": "Accept",
-                    "value": "application/json"
-                  },
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"position_id\": {{current_position_id}},\n  \"base_salary\": 1300,\n  \"start_date\": \"2026-04-01\",\n  \"end_date\": null\n}"
-                },
-                "url": {
-                  "raw": "{{base_url}}/employees/{{employee_id}}/positions/{{employee_position_id}}",
-                  "host": [
-                    "{{base_url}}"
-                  ],
-                  "path": [
-                    "employees",
-                    "{{employee_id}}",
-                    "positions",
-                    "{{employee_position_id}}"
-                  ]
-                }
-              }
-            },
-            {
-              "name": "Delete Employee Position",
-              "request": {
-                "description": "Delete one employee position record independently.",
-                "method": "DELETE",
-                "header": [
-                  {
-                    "key": "Accept",
-                    "value": "application/json"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/employees/{{employee_id}}/positions/{{employee_position_id}}",
-                  "host": [
-                    "{{base_url}}"
-                  ],
-                  "path": [
-                    "employees",
-                    "{{employee_id}}",
-                    "positions",
-                    "{{employee_position_id}}"
-                  ]
-                }
-              }
-            }
-          ]
-        },
-        {
-          "name": "Update",
-          "request": {
-            "description": "Update an employee. PATCH supports partial updates and can replace nested structured addresses, emergency contacts, educations, and employee position history in the same request.",
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"first_name\": \"Updated\",\n  \"employment_type\": \"contract\",\n  \"personal_phone\": \"088123456\",\n  \"status\": \"active\",\n  \"include\": [\"addresses\", \"emergency_contacts\", \"educations\", \"employee_positions\"],\n  \"addresses\": [\n    {\n      \"address_type\": \"temporary\",\n      \"province_id\": {{province_id}},\n      \"district_id\": {{district_id}},\n      \"commune_id\": {{commune_id}},\n      \"village_id\": {{village_id}},\n      \"address_line\": \"Rental room\",\n      \"street\": \"Street 2004\",\n      \"house_no\": \"3C\",\n      \"postal_code\": \"17100\",\n      \"note\": \"Three month lease\",\n      \"is_primary\": true\n    }\n  ],\n  \"emergency_contacts\": [\n    {\n      \"name\": \"Updated Contact\",\n      \"relationship\": \"guardian\",\n      \"phone\": \"077123456\",\n      \"is_primary\": true\n    }\n  ],\n  \"educations\": [\n    {\n      \"institution_name\": \"National University\",\n      \"education_level\": \"master\",\n      \"degree\": \"Master of Science\"\n    }\n  ],\n  \"employee_positions\": [\n    {\n      \"position_id\": {{current_position_id}},\n      \"base_salary\": 1200,\n      \"start_date\": \"2026-04-01\",\n      \"end_date\": null\n    }\n  ]\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/employees/{{employee_id}}",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "employees",
-                "{{employee_id}}"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Delete",
-          "request": {
-            "description": "Soft delete an employee. Returns HTTP 204 with no body.",
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/employees/{{employee_id}}",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "employees",
-                "{{employee_id}}"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Restore",
-          "request": {
-            "description": "Restore a soft-deleted employee.\n\nSample response:\n{\n  \"id\": 12,\n  \"employee_code\": \"EMP000012\",\n  \"first_name\": \"Updated\",\n  \"last_name\": \"Lim\",\n  \"status\": \"active\",\n  \"deleted_at\": null\n}",
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/employees/{{employee_id}}/restore",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "employees",
-                "{{employee_id}}",
-                "restore"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Deactivate Employee",
-          "request": {
-            "description": "Deactivate an employee with a dedicated status action.\n\nSample response:\n{\n  \"id\": 12,\n  \"employee_code\": \"EMP000012\",\n  \"first_name\": \"Updated\",\n  \"last_name\": \"Lim\",\n  \"status\": \"inactive\"\n}",
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/employees/{{employee_id}}/deactivate",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "employees",
-                "{{employee_id}}",
-                "deactivate"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Activate Employee",
-          "request": {
-            "description": "Activate an employee with a dedicated status action.\n\nSample response:\n{\n  \"id\": 12,\n  \"employee_code\": \"EMP000012\",\n  \"first_name\": \"Updated\",\n  \"last_name\": \"Lim\",\n  \"status\": \"active\"\n}",
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/employees/{{employee_id}}/activate",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "employees",
-                "{{employee_id}}",
-                "activate"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Terminate Employee",
-          "request": {
-            "description": "Terminate an employee with a dedicated status action. You can optionally pass termination dates.\n\nSample response:\n{\n  \"id\": 12,\n  \"employee_code\": \"EMP000012\",\n  \"first_name\": \"Updated\",\n  \"last_name\": \"Lim\",\n  \"status\": \"terminated\",\n  \"termination_date\": \"2026-05-31T00:00:00.000000Z\",\n  \"last_working_date\": \"2026-05-31T00:00:00.000000Z\"\n}",
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"termination_date\": \"2026-05-31\",\n  \"last_working_date\": \"2026-05-31\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/employees/{{employee_id}}/terminate",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "employees",
-                "{{employee_id}}",
-                "terminate"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Unterminate Employee",
-          "request": {
-            "description": "Reverse a terminated employee back to active status and clear termination fields.\n\nSample response:\n{\n  \"id\": 12,\n  \"employee_code\": \"EMP000012\",\n  \"first_name\": \"Updated\",\n  \"last_name\": \"Lim\",\n  \"status\": \"active\",\n  \"termination_date\": null,\n  \"last_working_date\": null\n}",
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/employees/{{employee_id}}/unterminate",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "employees",
-                "{{employee_id}}",
-                "unterminate"
-              ]
-            }
-          }
-        }
-      ]
-    }
-  ]
+    "info":  {
+                 "_postman_id":  "a21c2df9-3f8f-4d4e-8c6f-employee-api-collection",
+                 "name":  "Employee API",
+                 "description":  "Postman collection for the Employee module backend APIs.",
+                 "schema":  "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+             },
+    "variable":  [
+                     {
+                         "key":  "base_url",
+                         "value":  "http://localhost:8000/api"
+                     },
+                     {
+                         "key":  "email",
+                         "value":  "admin@example.com"
+                     },
+                     {
+                         "key":  "password",
+                         "value":  "password"
+                     },
+                     {
+                         "key":  "access_token",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "employee_id",
+                         "value":  "1"
+                     },
+                     {
+                         "key":  "address_id",
+                         "value":  "1"
+                     },
+                     {
+                         "key":  "contact_id",
+                         "value":  "1"
+                     },
+                     {
+                         "key":  "employee_position_id",
+                         "value":  "1"
+                     },
+                     {
+                         "key":  "user_id",
+                         "value":  "2"
+                     },
+                     {
+                         "key":  "department_id",
+                         "value":  "1"
+                     },
+                     {
+                         "key":  "branch_id",
+                         "value":  "1"
+                     },
+                     {
+                         "key":  "current_position_id",
+                         "value":  "1"
+                     },
+                     {
+                         "key":  "shift_id",
+                         "value":  "1"
+                     },
+                     {
+                         "key":  "manager_id",
+                         "value":  "1"
+                     },
+                     {
+                         "key":  "province_id",
+                         "value":  "1"
+                     },
+                     {
+                         "key":  "district_id",
+                         "value":  "1"
+                     },
+                     {
+                         "key":  "commune_id",
+                         "value":  "1"
+                     },
+                     {
+                         "key":  "village_id",
+                         "value":  "1"
+                     }
+                 ],
+    "auth":  {
+                 "type":  "bearer",
+                 "bearer":  [
+                                {
+                                    "key":  "token",
+                                    "value":  "{{access_token}}",
+                                    "type":  "string"
+                                }
+                            ]
+             },
+    "item":  [
+                 {
+                     "name":  "Auth",
+                     "item":  [
+                                  {
+                                      "name":  "Login",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "const data = pm.response.json();",
+                                                                                    "if (data.access_token) {",
+                                                                                    "    pm.collectionVariables.set(\u0027access_token\u0027, data.access_token);",
+                                                                                    "}"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/auth/login",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "auth",
+                                                                               "login"
+                                                                           ]
+                                                              }
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Employees",
+                     "item":  [
+                                  {
+                                      "name":  "List Positions",
+                                      "request":  {
+                                                      "description":  "List available positions for HR/Admin dropdowns.\n\nOptional query params:\n- search\n\nSample response:\n{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"title\": \"Analyst\"\n    },\n    {\n      \"id\": 2,\n      \"title\": \"Coordinator\"\n    }\n  ]\n}",
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/positions?search=analyst",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "positions"
+                                                                           ],
+                                                                  "query":  [
+                                                                                {
+                                                                                    "key":  "search",
+                                                                                    "value":  "analyst"
+                                                                                }
+                                                                            ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "List Provinces",
+                                      "request":  {
+                                                      "description":  "List provinces for address dropdowns.\n\nOptional query params:\n- search\n\nSample response:\n{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"source_id\": 1,\n      \"code\": \"01\",\n      \"name_kh\": \"ភ្នំពេញ\",\n      \"name_en\": \"Phnom Penh\"\n    }\n  ]\n}",
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/locations/provinces?search=phnom",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "locations",
+                                                                               "provinces"
+                                                                           ],
+                                                                  "query":  [
+                                                                                {
+                                                                                    "key":  "search",
+                                                                                    "value":  "phnom"
+                                                                                }
+                                                                            ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "List Districts",
+                                      "request":  {
+                                                      "description":  "List districts for address dropdowns.\n\nOptional query params:\n- province_id\n- search\n\nSample response:\n{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"source_id\": 101,\n      \"code\": \"101\",\n      \"province_id\": 1,\n      \"name_kh\": \"ចំការមន\",\n      \"name_en\": \"Chamkar Mon\",\n      \"type\": \"ក្រុង\"\n    }\n  ]\n}",
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/locations/districts?province_id={{province_id}}\u0026search=chamkar",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "locations",
+                                                                               "districts"
+                                                                           ],
+                                                                  "query":  [
+                                                                                {
+                                                                                    "key":  "province_id",
+                                                                                    "value":  "{{province_id}}"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "search",
+                                                                                    "value":  "chamkar"
+                                                                                }
+                                                                            ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "List Communes",
+                                      "request":  {
+                                                      "description":  "List communes for address dropdowns.\n\nOptional query params:\n- district_id\n- search\n\nSample response:\n{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"source_id\": 10101,\n      \"code\": \"10101\",\n      \"district_id\": 1,\n      \"name_kh\": \"ទន្លេបាសាក់\",\n      \"name_en\": \"Tonle Basak\"\n    }\n  ]\n}",
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/locations/communes?district_id={{district_id}}\u0026search=tonle",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "locations",
+                                                                               "communes"
+                                                                           ],
+                                                                  "query":  [
+                                                                                {
+                                                                                    "key":  "district_id",
+                                                                                    "value":  "{{district_id}}"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "search",
+                                                                                    "value":  "tonle"
+                                                                                }
+                                                                            ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "List Villages",
+                                      "request":  {
+                                                      "description":  "List villages for address dropdowns.\n\nOptional query params:\n- commune_id\n- search\n\nSample response:\n{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"source_id\": 1010101,\n      \"code\": \"1010101\",\n      \"commune_id\": 1,\n      \"name_kh\": \"ភូមិ១\",\n      \"name_en\": \"Village 1\",\n      \"is_not_active\": false\n    }\n  ]\n}",
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/locations/villages?commune_id={{commune_id}}\u0026search=village 1",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "locations",
+                                                                               "villages"
+                                                                           ],
+                                                                  "query":  [
+                                                                                {
+                                                                                    "key":  "commune_id",
+                                                                                    "value":  "{{commune_id}}"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "search",
+                                                                                    "value":  "village 1"
+                                                                                }
+                                                                            ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "List",
+                                      "request":  {
+                                                      "description":  "List employees with pagination.\n\nSample response:\n{\n  \"data\": [\n    {\n      \"id\": 1,\n      \"employee_code\": \"EMP000001\",\n      \"first_name\": \"Emma\",\n      \"last_name\": \"Employee\",\n      \"full_name\": \"Emma Employee\",\n      \"email\": \"emma.employee@example.com\",\n      \"phone\": \"012345678\",\n      \"profile_photo\": null,\n      \"profile_photo_path\": null,\n      \"hire_date\": \"2026-04-01\",\n      \"employment_type\": \"full_time\",\n      \"status\": \"active\",\n      \"department\": { \"id\": 1, \"name\": \"Operations\" },\n      \"current_position\": { \"id\": 1, \"title\": \"Officer\" },\n      \"position\": { \"id\": 1, \"title\": \"Officer\" },\n      \"manager\": { \"id\": 2, \"name\": \"Helen HR\" },\n      \"branch\": { \"id\": 1, \"name\": \"HQ\", \"code\": \"HQ\" },\n      \"shift\": { \"id\": 1, \"name\": \"Morning\", \"code\": \"MORNING\", \"start_time\": \"08:00:00\", \"end_time\": \"17:00:00\", \"late_grace_minutes\": 0 },\n      \"created_at\": \"2026-04-05T10:00:00+07:00\",\n      \"updated_at\": \"2026-04-05T10:00:00+07:00\",\n      \"deleted_at\": null\n    }\n  ],\n  \"links\": {},\n  \"meta\": {}\n}",
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/employees?page=1\u0026per_page=10",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "employees"
+                                                                           ],
+                                                                  "query":  [
+                                                                                {
+                                                                                    "key":  "page",
+                                                                                    "value":  "1"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "per_page",
+                                                                                    "value":  "10"
+                                                                                }
+                                                                            ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Filtered List",
+                                      "request":  {
+                                                      "description":  "Filter employees by search, status, org structure, employment type, hire date, sorting, and includes.\n\nSample query:\nsearch=Emma\u0026status=active\u0026department_id=1\u0026branch_id=1\u0026current_position_id=1\u0026manager_id=2\u0026employment_type=full_time\u0026hire_date_from=2026-04-01\u0026hire_date_to=2026-04-30\u0026sort_by=first_name\u0026sort_direction=asc\u0026include=addresses,educations,emergency_contacts,employee_positions",
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/employees?search=Emma\u0026status=active\u0026department_id={{department_id}}\u0026branch_id={{branch_id}}\u0026current_position_id={{current_position_id}}\u0026manager_id={{manager_id}}\u0026employment_type=full_time\u0026hire_date_from=2026-04-01\u0026hire_date_to=2026-04-30\u0026sort_by=first_name\u0026sort_direction=asc\u0026per_page=20\u0026include=addresses,educations,emergency_contacts,employee_positions",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "employees"
+                                                                           ],
+                                                                  "query":  [
+                                                                                {
+                                                                                    "key":  "search",
+                                                                                    "value":  "Emma"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "status",
+                                                                                    "value":  "active"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "department_id",
+                                                                                    "value":  "{{department_id}}"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "branch_id",
+                                                                                    "value":  "{{branch_id}}"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "current_position_id",
+                                                                                    "value":  "{{current_position_id}}"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "manager_id",
+                                                                                    "value":  "{{manager_id}}"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "employment_type",
+                                                                                    "value":  "full_time"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "hire_date_from",
+                                                                                    "value":  "2026-04-01"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "hire_date_to",
+                                                                                    "value":  "2026-04-30"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "sort_by",
+                                                                                    "value":  "first_name"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "sort_direction",
+                                                                                    "value":  "asc"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "per_page",
+                                                                                    "value":  "20"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "include",
+                                                                                    "value":  "addresses,educations,emergency_contacts,employee_positions"
+                                                                                }
+                                                                            ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Export Employees",
+                                      "request":  {
+                                                      "description":  "Download an Excel export of employees. HR only.\n\nThis uses the same filters as the employee list API and returns an .xlsx file download.\n\nExported columns:\n- Employee Code\n- Full Name\n- Email\n- Phone\n- Department\n- Current Position\n- Manager\n- Hire Date\n- Employment Type\n- Status",
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/employees/export/excel",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "employees",
+                                                                               "export",
+                                                                               "excel"
+                                                                           ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Export Employees (Filtered)",
+                                      "request":  {
+                                                      "description":  "Download a filtered Excel export of employees using the exact same query params as GET /employees.",
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/employees/export/excel?search=Emma\u0026status=active\u0026department_id={{department_id}}\u0026branch_id={{branch_id}}\u0026current_position_id={{current_position_id}}\u0026manager_id={{manager_id}}\u0026employment_type=full_time\u0026hire_date_from=2026-04-01\u0026hire_date_to=2026-04-30\u0026sort_by=first_name\u0026sort_direction=asc",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "employees",
+                                                                               "export",
+                                                                               "excel"
+                                                                           ],
+                                                                  "query":  [
+                                                                                {
+                                                                                    "key":  "search",
+                                                                                    "value":  "Emma"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "status",
+                                                                                    "value":  "active"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "department_id",
+                                                                                    "value":  "{{department_id}}"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "branch_id",
+                                                                                    "value":  "{{branch_id}}"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "current_position_id",
+                                                                                    "value":  "{{current_position_id}}"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "manager_id",
+                                                                                    "value":  "{{manager_id}}"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "employment_type",
+                                                                                    "value":  "full_time"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "hire_date_from",
+                                                                                    "value":  "2026-04-01"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "hire_date_to",
+                                                                                    "value":  "2026-04-30"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "sort_by",
+                                                                                    "value":  "first_name"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "sort_direction",
+                                                                                    "value":  "asc"
+                                                                                }
+                                                                            ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "List Available Employee Users",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/employees/available-users",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "employees",
+                                                                               "available-users"
+                                                                           ]
+                                                              },
+                                                      "description":  "HR-only helper endpoint for the employee creation flow.\n\nBackend rules:\n- requires auth:api and role:hr\n- excludes users already linked to a non-deleted employee record\n- excludes any user with the admin role\n- returns a slim picker payload with id, name, email, and roles only\n- keeps eligibility filtering in the backend so the frontend only receives linkable users"
+                                                  },
+                                      "response":  [
+
+                                                   ]
+                                  },
+                                  {
+                                      "name":  "Create",
+                                      "request":  {
+                                                      "description":  "Create a new employee and optionally store all related employee info in one request: structured addresses, emergency contacts, educations, and employee position history.\n\nSample success response:\n{\n  \"id\": 12,\n  \"user_id\": 2,\n  \"employee_code\": \"EMP000012\",\n  \"first_name\": \"Dara\",\n  \"last_name\": \"Lim\",\n  \"full_name\": \"Dara Lim\",\n  \"email\": \"dara.lim@example.com\",\n  \"phone\": \"010222333\",\n  \"hire_date\": \"2026-04-01\",\n  \"status\": \"active\",\n  \"branch\": { \"id\": 1, \"name\": \"HQ\", \"code\": \"HQ\" },\n  \"shift\": { \"id\": 1, \"name\": \"Day Shift\", \"code\": \"DAY\", \"start_time\": \"08:00:00\", \"end_time\": \"17:00:00\", \"late_grace_minutes\": 0 },\n  \"current_position\": { \"id\": 1, \"title\": \"Support Agent\" },\n  \"addresses\": [\n    {\n      \"id\": 1,\n      \"address_type\": \"current\",\n      \"province_id\": 1,\n      \"district_id\": 1,\n      \"commune_id\": 1,\n      \"village_id\": 1,\n      \"address_line\": \"Apartment 10B\",\n      \"street\": \"Street 271\",\n      \"house_no\": \"10B\",\n      \"postal_code\": \"12000\",\n      \"note\": \"Near the market\",\n      \"is_primary\": true,\n      \"province\": { \"id\": 1, \"code\": \"01\", \"name_kh\": \"ភ្នំពេញ\", \"name_en\": \"Phnom Penh\" },\n      \"district\": { \"id\": 1, \"code\": \"101\", \"name_kh\": \"ចំការមន\", \"name_en\": \"Chamkar Mon\", \"type\": \"ក្រុង\" },\n      \"commune\": { \"id\": 1, \"code\": \"10101\", \"name_kh\": \"ទន្លេបាសាក់\", \"name_en\": \"Tonle Basak\" },\n      \"village\": { \"id\": 1, \"code\": \"1010101\", \"name_kh\": \"ភូមិ១\", \"name_en\": \"Village 1\" }\n    }\n  ],\n  \"educations\": [\n    {\n      \"id\": 3,\n      \"institution_name\": \"Royal University of Phnom Penh\",\n      \"education_level\": \"bachelor\",\n      \"degree\": \"Bachelor of Management\"\n    }\n  ],\n  \"employee_positions\": [\n    {\n      \"id\": 9,\n      \"position_id\": 1,\n      \"position\": { \"id\": 1, \"title\": \"Support Agent\" },\n      \"base_salary\": \"600.00\",\n      \"start_date\": \"2026-04-01\",\n      \"end_date\": null,\n      \"is_current\": true\n    }\n  ],\n  \"emergency_contacts\": [\n    {\n      \"id\": 1,\n      \"name\": \"Primary Contact\",\n      \"relationship\": \"spouse\",\n      \"phone\": \"011111111\",\n      \"email\": \"primary@example.com\",\n      \"is_primary\": true\n    }\n  ]\n}",
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"user_id\": {{user_id}},\n  \"department_id\": {{department_id}},\n  \"branch_id\": {{branch_id}},\n  \"current_position_id\": {{current_position_id}},\n  \"shift_id\": {{shift_id}},\n  \"manager_id\": {{manager_id}},\n  \"first_name\": \"Dara\",\n  \"last_name\": \"Lim\",\n  \"email\": \"dara.lim@example.com\",\n  \"phone\": \"010222333\",\n  \"date_of_birth\": \"1995-11-02\",\n  \"gender\": \"female\",\n  \"personal_phone\": \"099555666\",\n  \"personal_email\": \"dara.personal@example.com\",\n  \"addresses\": [\n    {\n      \"address_type\": \"current\",\n      \"province_id\": {{province_id}},\n      \"district_id\": {{district_id}},\n      \"commune_id\": {{commune_id}},\n      \"village_id\": {{village_id}},\n      \"address_line\": \"Apartment 10B\",\n      \"street\": \"Street 271\",\n      \"house_no\": \"10B\",\n      \"postal_code\": \"12000\",\n      \"note\": \"Near the market\",\n      \"is_primary\": true\n    },\n    {\n      \"address_type\": \"permanent\",\n      \"address_line\": \"Family home\",\n      \"street\": \"National Road 6\",\n      \"house_no\": \"22A\",\n      \"postal_code\": \"13000\"\n    }\n  ],\n  \"id_type\": \"national_id\",\n  \"id_number\": \"ID-2026-001\",\n  \"emergency_contact_name\": \"Legacy Contact\",\n  \"emergency_contact_relationship\": \"sibling\",\n  \"emergency_contact_phone\": \"012999999\",\n  \"hire_date\": \"2026-04-01\",\n  \"employment_type\": \"full_time\",\n  \"confirmation_date\": \"2026-07-01\",\n  \"status\": \"active\",\n  \"include\": [\"addresses\", \"emergency_contacts\", \"educations\", \"employee_positions\"],\n  \"emergency_contacts\": [\n    {\n      \"name\": \"Primary Contact\",\n      \"relationship\": \"spouse\",\n      \"phone\": \"011111111\",\n      \"email\": \"primary@example.com\",\n      \"is_primary\": true\n    },\n    {\n      \"name\": \"Second Contact\",\n      \"relationship\": \"parent\",\n      \"phone\": \"022222222\"\n    }\n  ],\n  \"educations\": [\n    {\n      \"institution_name\": \"Royal University of Phnom Penh\",\n      \"education_level\": \"bachelor\",\n      \"degree\": \"Bachelor of Management\",\n      \"field_of_study\": \"Management\",\n      \"graduation_year\": 2022\n    }\n  ],\n  \"employee_positions\": [\n    {\n      \"position_id\": {{current_position_id}},\n      \"base_salary\": 600,\n      \"start_date\": \"2026-04-01\",\n      \"end_date\": null\n    }\n  ]\n}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/employees",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "employees"
+                                                                           ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Show",
+                                      "request":  {
+                                                      "description":  "Show a single employee. Employee role can view only their own employee record.\n\nSample response includes optional relations via include=addresses,educations,emergency_contacts,employee_positions,user.",
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/employees/{{employee_id}}?include=addresses,educations,emergency_contacts,employee_positions,user",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "employees",
+                                                                               "{{employee_id}}"
+                                                                           ],
+                                                                  "query":  [
+                                                                                {
+                                                                                    "key":  "include",
+                                                                                    "value":  "addresses,educations,emergency_contacts,employee_positions,user"
+                                                                                }
+                                                                            ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Employee Addresses",
+                                      "item":  [
+                                                   {
+                                                       "name":  "List Addresses",
+                                                       "request":  {
+                                                                       "description":  "List employee addresses independently from the main employee update API.",
+                                                                       "method":  "GET",
+                                                                       "header":  [
+                                                                                      {
+                                                                                          "key":  "Accept",
+                                                                                          "value":  "application/json"
+                                                                                      }
+                                                                                  ],
+                                                                       "url":  {
+                                                                                   "raw":  "{{base_url}}/employees/{{employee_id}}/addresses",
+                                                                                   "host":  [
+                                                                                                "{{base_url}}"
+                                                                                            ],
+                                                                                   "path":  [
+                                                                                                "employees",
+                                                                                                "{{employee_id}}",
+                                                                                                "addresses"
+                                                                                            ]
+                                                                               }
+                                                                   }
+                                                   },
+                                                   {
+                                                       "name":  "Create Address",
+                                                       "request":  {
+                                                                       "description":  "Create one employee address independently.",
+                                                                       "method":  "POST",
+                                                                       "header":  [
+                                                                                      {
+                                                                                          "key":  "Accept",
+                                                                                          "value":  "application/json"
+                                                                                      },
+                                                                                      {
+                                                                                          "key":  "Content-Type",
+                                                                                          "value":  "application/json"
+                                                                                      }
+                                                                                  ],
+                                                                       "body":  {
+                                                                                    "mode":  "raw",
+                                                                                    "raw":  "{\n  \"address_type\": \"current\",\n  \"province_id\": {{province_id}},\n  \"district_id\": {{district_id}},\n  \"commune_id\": {{commune_id}},\n  \"village_id\": {{village_id}},\n  \"address_line\": \"Apartment 10B\",\n  \"street\": \"Street 271\",\n  \"house_no\": \"10B\",\n  \"postal_code\": \"12000\",\n  \"note\": \"Near the market\",\n  \"is_primary\": true\n}"
+                                                                                },
+                                                                       "url":  {
+                                                                                   "raw":  "{{base_url}}/employees/{{employee_id}}/addresses",
+                                                                                   "host":  [
+                                                                                                "{{base_url}}"
+                                                                                            ],
+                                                                                   "path":  [
+                                                                                                "employees",
+                                                                                                "{{employee_id}}",
+                                                                                                "addresses"
+                                                                                            ]
+                                                                               }
+                                                                   }
+                                                   },
+                                                   {
+                                                       "name":  "Update Address",
+                                                       "request":  {
+                                                                       "description":  "Update one employee address independently.",
+                                                                       "method":  "PUT",
+                                                                       "header":  [
+                                                                                      {
+                                                                                          "key":  "Accept",
+                                                                                          "value":  "application/json"
+                                                                                      },
+                                                                                      {
+                                                                                          "key":  "Content-Type",
+                                                                                          "value":  "application/json"
+                                                                                      }
+                                                                                  ],
+                                                                       "body":  {
+                                                                                    "mode":  "raw",
+                                                                                    "raw":  "{\n  \"address_type\": \"temporary\",\n  \"province_id\": {{province_id}},\n  \"district_id\": {{district_id}},\n  \"commune_id\": {{commune_id}},\n  \"village_id\": {{village_id}},\n  \"address_line\": \"Rental room\",\n  \"street\": \"Street 2004\",\n  \"house_no\": \"3C\",\n  \"postal_code\": \"17100\",\n  \"note\": \"Three month lease\",\n  \"is_primary\": false\n}"
+                                                                                },
+                                                                       "url":  {
+                                                                                   "raw":  "{{base_url}}/employees/{{employee_id}}/addresses/{{address_id}}",
+                                                                                   "host":  [
+                                                                                                "{{base_url}}"
+                                                                                            ],
+                                                                                   "path":  [
+                                                                                                "employees",
+                                                                                                "{{employee_id}}",
+                                                                                                "addresses",
+                                                                                                "{{address_id}}"
+                                                                                            ]
+                                                                               }
+                                                                   }
+                                                   },
+                                                   {
+                                                       "name":  "Delete Address",
+                                                       "request":  {
+                                                                       "description":  "Delete one employee address independently.",
+                                                                       "method":  "DELETE",
+                                                                       "header":  [
+                                                                                      {
+                                                                                          "key":  "Accept",
+                                                                                          "value":  "application/json"
+                                                                                      }
+                                                                                  ],
+                                                                       "url":  {
+                                                                                   "raw":  "{{base_url}}/employees/{{employee_id}}/addresses/{{address_id}}",
+                                                                                   "host":  [
+                                                                                                "{{base_url}}"
+                                                                                            ],
+                                                                                   "path":  [
+                                                                                                "employees",
+                                                                                                "{{employee_id}}",
+                                                                                                "addresses",
+                                                                                                "{{address_id}}"
+                                                                                            ]
+                                                                               }
+                                                                   }
+                                                   }
+                                               ]
+                                  },
+                                  {
+                                      "name":  "Employee Emergency Contacts",
+                                      "item":  [
+                                                   {
+                                                       "name":  "List Emergency Contacts",
+                                                       "request":  {
+                                                                       "description":  "List employee emergency contacts independently from the main employee update API.",
+                                                                       "method":  "GET",
+                                                                       "header":  [
+                                                                                      {
+                                                                                          "key":  "Accept",
+                                                                                          "value":  "application/json"
+                                                                                      }
+                                                                                  ],
+                                                                       "url":  {
+                                                                                   "raw":  "{{base_url}}/employees/{{employee_id}}/emergency-contacts",
+                                                                                   "host":  [
+                                                                                                "{{base_url}}"
+                                                                                            ],
+                                                                                   "path":  [
+                                                                                                "employees",
+                                                                                                "{{employee_id}}",
+                                                                                                "emergency-contacts"
+                                                                                            ]
+                                                                               }
+                                                                   }
+                                                   },
+                                                   {
+                                                       "name":  "Create Emergency Contact",
+                                                       "request":  {
+                                                                       "description":  "Create one employee emergency contact independently.",
+                                                                       "method":  "POST",
+                                                                       "header":  [
+                                                                                      {
+                                                                                          "key":  "Accept",
+                                                                                          "value":  "application/json"
+                                                                                      },
+                                                                                      {
+                                                                                          "key":  "Content-Type",
+                                                                                          "value":  "application/json"
+                                                                                      }
+                                                                                  ],
+                                                                       "body":  {
+                                                                                    "mode":  "raw",
+                                                                                    "raw":  "{\n  \"name\": \"Primary Contact\",\n  \"relationship\": \"spouse\",\n  \"phone\": \"011111111\",\n  \"email\": \"primary@example.com\",\n  \"is_primary\": true\n}"
+                                                                                },
+                                                                       "url":  {
+                                                                                   "raw":  "{{base_url}}/employees/{{employee_id}}/emergency-contacts",
+                                                                                   "host":  [
+                                                                                                "{{base_url}}"
+                                                                                            ],
+                                                                                   "path":  [
+                                                                                                "employees",
+                                                                                                "{{employee_id}}",
+                                                                                                "emergency-contacts"
+                                                                                            ]
+                                                                               }
+                                                                   }
+                                                   },
+                                                   {
+                                                       "name":  "Update Emergency Contact",
+                                                       "request":  {
+                                                                       "description":  "Update one employee emergency contact independently.",
+                                                                       "method":  "PUT",
+                                                                       "header":  [
+                                                                                      {
+                                                                                          "key":  "Accept",
+                                                                                          "value":  "application/json"
+                                                                                      },
+                                                                                      {
+                                                                                          "key":  "Content-Type",
+                                                                                          "value":  "application/json"
+                                                                                      }
+                                                                                  ],
+                                                                       "body":  {
+                                                                                    "mode":  "raw",
+                                                                                    "raw":  "{\n  \"name\": \"Updated Contact\",\n  \"relationship\": \"guardian\",\n  \"phone\": \"077123456\",\n  \"email\": \"updated@example.com\",\n  \"is_primary\": false\n}"
+                                                                                },
+                                                                       "url":  {
+                                                                                   "raw":  "{{base_url}}/employees/{{employee_id}}/emergency-contacts/{{contact_id}}",
+                                                                                   "host":  [
+                                                                                                "{{base_url}}"
+                                                                                            ],
+                                                                                   "path":  [
+                                                                                                "employees",
+                                                                                                "{{employee_id}}",
+                                                                                                "emergency-contacts",
+                                                                                                "{{contact_id}}"
+                                                                                            ]
+                                                                               }
+                                                                   }
+                                                   },
+                                                   {
+                                                       "name":  "Delete Emergency Contact",
+                                                       "request":  {
+                                                                       "description":  "Delete one employee emergency contact independently.",
+                                                                       "method":  "DELETE",
+                                                                       "header":  [
+                                                                                      {
+                                                                                          "key":  "Accept",
+                                                                                          "value":  "application/json"
+                                                                                      }
+                                                                                  ],
+                                                                       "url":  {
+                                                                                   "raw":  "{{base_url}}/employees/{{employee_id}}/emergency-contacts/{{contact_id}}",
+                                                                                   "host":  [
+                                                                                                "{{base_url}}"
+                                                                                            ],
+                                                                                   "path":  [
+                                                                                                "employees",
+                                                                                                "{{employee_id}}",
+                                                                                                "emergency-contacts",
+                                                                                                "{{contact_id}}"
+                                                                                            ]
+                                                                               }
+                                                                   }
+                                                   }
+                                               ]
+                                  },
+                                  {
+                                      "name":  "Employee Positions",
+                                      "item":  [
+                                                   {
+                                                       "name":  "List Employee Positions",
+                                                       "request":  {
+                                                                       "description":  "List employee position history independently from the main employee update API.",
+                                                                       "method":  "GET",
+                                                                       "header":  [
+                                                                                      {
+                                                                                          "key":  "Accept",
+                                                                                          "value":  "application/json"
+                                                                                      }
+                                                                                  ],
+                                                                       "url":  {
+                                                                                   "raw":  "{{base_url}}/employees/{{employee_id}}/positions",
+                                                                                   "host":  [
+                                                                                                "{{base_url}}"
+                                                                                            ],
+                                                                                   "path":  [
+                                                                                                "employees",
+                                                                                                "{{employee_id}}",
+                                                                                                "positions"
+                                                                                            ]
+                                                                               }
+                                                                   }
+                                                   },
+                                                   {
+                                                       "name":  "Create Employee Position",
+                                                       "request":  {
+                                                                       "description":  "Create one employee position record independently. Only one current position is allowed.",
+                                                                       "method":  "POST",
+                                                                       "header":  [
+                                                                                      {
+                                                                                          "key":  "Accept",
+                                                                                          "value":  "application/json"
+                                                                                      },
+                                                                                      {
+                                                                                          "key":  "Content-Type",
+                                                                                          "value":  "application/json"
+                                                                                      }
+                                                                                  ],
+                                                                       "body":  {
+                                                                                    "mode":  "raw",
+                                                                                    "raw":  "{\n  \"position_id\": {{current_position_id}},\n  \"base_salary\": 1200,\n  \"start_date\": \"2026-04-01\",\n  \"end_date\": null\n}"
+                                                                                },
+                                                                       "url":  {
+                                                                                   "raw":  "{{base_url}}/employees/{{employee_id}}/positions",
+                                                                                   "host":  [
+                                                                                                "{{base_url}}"
+                                                                                            ],
+                                                                                   "path":  [
+                                                                                                "employees",
+                                                                                                "{{employee_id}}",
+                                                                                                "positions"
+                                                                                            ]
+                                                                               }
+                                                                   }
+                                                   },
+                                                   {
+                                                       "name":  "Update Employee Position",
+                                                       "request":  {
+                                                                       "description":  "Update one employee position record independently.",
+                                                                       "method":  "PUT",
+                                                                       "header":  [
+                                                                                      {
+                                                                                          "key":  "Accept",
+                                                                                          "value":  "application/json"
+                                                                                      },
+                                                                                      {
+                                                                                          "key":  "Content-Type",
+                                                                                          "value":  "application/json"
+                                                                                      }
+                                                                                  ],
+                                                                       "body":  {
+                                                                                    "mode":  "raw",
+                                                                                    "raw":  "{\n  \"position_id\": {{current_position_id}},\n  \"base_salary\": 1300,\n  \"start_date\": \"2026-04-01\",\n  \"end_date\": null\n}"
+                                                                                },
+                                                                       "url":  {
+                                                                                   "raw":  "{{base_url}}/employees/{{employee_id}}/positions/{{employee_position_id}}",
+                                                                                   "host":  [
+                                                                                                "{{base_url}}"
+                                                                                            ],
+                                                                                   "path":  [
+                                                                                                "employees",
+                                                                                                "{{employee_id}}",
+                                                                                                "positions",
+                                                                                                "{{employee_position_id}}"
+                                                                                            ]
+                                                                               }
+                                                                   }
+                                                   },
+                                                   {
+                                                       "name":  "Delete Employee Position",
+                                                       "request":  {
+                                                                       "description":  "Delete one employee position record independently.",
+                                                                       "method":  "DELETE",
+                                                                       "header":  [
+                                                                                      {
+                                                                                          "key":  "Accept",
+                                                                                          "value":  "application/json"
+                                                                                      }
+                                                                                  ],
+                                                                       "url":  {
+                                                                                   "raw":  "{{base_url}}/employees/{{employee_id}}/positions/{{employee_position_id}}",
+                                                                                   "host":  [
+                                                                                                "{{base_url}}"
+                                                                                            ],
+                                                                                   "path":  [
+                                                                                                "employees",
+                                                                                                "{{employee_id}}",
+                                                                                                "positions",
+                                                                                                "{{employee_position_id}}"
+                                                                                            ]
+                                                                               }
+                                                                   }
+                                                   }
+                                               ]
+                                  },
+                                  {
+                                      "name":  "Update",
+                                      "request":  {
+                                                      "description":  "Update an employee. PATCH supports partial updates and can replace nested structured addresses, emergency contacts, educations, and employee position history in the same request.",
+                                                      "method":  "PATCH",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"first_name\": \"Updated\",\n  \"employment_type\": \"contract\",\n  \"personal_phone\": \"088123456\",\n  \"status\": \"active\",\n  \"include\": [\"addresses\", \"emergency_contacts\", \"educations\", \"employee_positions\"],\n  \"addresses\": [\n    {\n      \"address_type\": \"temporary\",\n      \"province_id\": {{province_id}},\n      \"district_id\": {{district_id}},\n      \"commune_id\": {{commune_id}},\n      \"village_id\": {{village_id}},\n      \"address_line\": \"Rental room\",\n      \"street\": \"Street 2004\",\n      \"house_no\": \"3C\",\n      \"postal_code\": \"17100\",\n      \"note\": \"Three month lease\",\n      \"is_primary\": true\n    }\n  ],\n  \"emergency_contacts\": [\n    {\n      \"name\": \"Updated Contact\",\n      \"relationship\": \"guardian\",\n      \"phone\": \"077123456\",\n      \"is_primary\": true\n    }\n  ],\n  \"educations\": [\n    {\n      \"institution_name\": \"National University\",\n      \"education_level\": \"master\",\n      \"degree\": \"Master of Science\"\n    }\n  ],\n  \"employee_positions\": [\n    {\n      \"position_id\": {{current_position_id}},\n      \"base_salary\": 1200,\n      \"start_date\": \"2026-04-01\",\n      \"end_date\": null\n    }\n  ]\n}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/employees/{{employee_id}}",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "employees",
+                                                                               "{{employee_id}}"
+                                                                           ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Delete",
+                                      "request":  {
+                                                      "description":  "Soft delete an employee. Returns HTTP 204 with no body.",
+                                                      "method":  "DELETE",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/employees/{{employee_id}}",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "employees",
+                                                                               "{{employee_id}}"
+                                                                           ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Restore",
+                                      "request":  {
+                                                      "description":  "Restore a soft-deleted employee.\n\nSample response:\n{\n  \"id\": 12,\n  \"employee_code\": \"EMP000012\",\n  \"first_name\": \"Updated\",\n  \"last_name\": \"Lim\",\n  \"status\": \"active\",\n  \"deleted_at\": null\n}",
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/employees/{{employee_id}}/restore",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "employees",
+                                                                               "{{employee_id}}",
+                                                                               "restore"
+                                                                           ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Deactivate Employee",
+                                      "request":  {
+                                                      "description":  "Deactivate an employee with a dedicated status action.\n\nSample response:\n{\n  \"id\": 12,\n  \"employee_code\": \"EMP000012\",\n  \"first_name\": \"Updated\",\n  \"last_name\": \"Lim\",\n  \"status\": \"inactive\"\n}",
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/employees/{{employee_id}}/deactivate",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "employees",
+                                                                               "{{employee_id}}",
+                                                                               "deactivate"
+                                                                           ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Activate Employee",
+                                      "request":  {
+                                                      "description":  "Activate an employee with a dedicated status action.\n\nSample response:\n{\n  \"id\": 12,\n  \"employee_code\": \"EMP000012\",\n  \"first_name\": \"Updated\",\n  \"last_name\": \"Lim\",\n  \"status\": \"active\"\n}",
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/employees/{{employee_id}}/activate",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "employees",
+                                                                               "{{employee_id}}",
+                                                                               "activate"
+                                                                           ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Terminate Employee",
+                                      "request":  {
+                                                      "description":  "Terminate an employee with a dedicated status action. You can optionally pass termination dates.\n\nSample response:\n{\n  \"id\": 12,\n  \"employee_code\": \"EMP000012\",\n  \"first_name\": \"Updated\",\n  \"last_name\": \"Lim\",\n  \"status\": \"terminated\",\n  \"termination_date\": \"2026-05-31T00:00:00.000000Z\",\n  \"last_working_date\": \"2026-05-31T00:00:00.000000Z\"\n}",
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"termination_date\": \"2026-05-31\",\n  \"last_working_date\": \"2026-05-31\"\n}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/employees/{{employee_id}}/terminate",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "employees",
+                                                                               "{{employee_id}}",
+                                                                               "terminate"
+                                                                           ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Unterminate Employee",
+                                      "request":  {
+                                                      "description":  "Reverse a terminated employee back to active status and clear termination fields.\n\nSample response:\n{\n  \"id\": 12,\n  \"employee_code\": \"EMP000012\",\n  \"first_name\": \"Updated\",\n  \"last_name\": \"Lim\",\n  \"status\": \"active\",\n  \"termination_date\": null,\n  \"last_working_date\": null\n}",
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/employees/{{employee_id}}/unterminate",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "employees",
+                                                                               "{{employee_id}}",
+                                                                               "unterminate"
+                                                                           ]
+                                                              }
+                                                  }
+                                  }
+                              ]
+                 }
+             ]
 }

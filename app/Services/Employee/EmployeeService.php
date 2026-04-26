@@ -5,6 +5,7 @@ namespace App\Services\Employee;
 use App\EmployeeStatus;
 use App\Models\Employee;
 use App\Models\User;
+use App\PermissionName;
 use App\Services\AuditLogService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -70,6 +71,7 @@ class EmployeeService
                 ])->save();
             }
 
+            $this->syncLinkedUserName($employee);
             $this->syncEmergencyContacts($employee, $data);
             $this->syncAddresses($employee, $data);
             $this->syncEducations($employee, $data);
@@ -110,6 +112,7 @@ class EmployeeService
             $employee = Employee::query()->findOrFail($id);
 
             $employee->update($this->employeePayload($data, $employee));
+            $this->syncLinkedUserName($employee);
             $this->syncEmergencyContacts($employee, $data);
             $this->syncAddresses($employee, $data);
             $this->syncEducations($employee, $data);
@@ -460,12 +463,12 @@ class EmployeeService
 
     private function ensureCanView(Employee $employee, User $authenticatedUser): void
     {
-        if ($authenticatedUser->roles()->whereIn('name', ['admin', 'hr'])->exists()) {
+        if ($authenticatedUser->can(PermissionName::EmployeeViewAny->value)) {
             return;
         }
 
         if (
-            $authenticatedUser->roles()->where('name', 'employee')->exists() &&
+            $authenticatedUser->can(PermissionName::EmployeeViewSelf->value) &&
             $authenticatedUser->employee?->id === $employee->id
         ) {
             return;
@@ -504,7 +507,6 @@ class EmployeeService
             'emergency_contact_name' => array_key_exists('emergency_contact_name', $data) ? $data['emergency_contact_name'] : $employee?->emergency_contact_name,
             'emergency_contact_relationship' => array_key_exists('emergency_contact_relationship', $data) ? $data['emergency_contact_relationship'] : $employee?->emergency_contact_relationship,
             'emergency_contact_phone' => array_key_exists('emergency_contact_phone', $data) ? $data['emergency_contact_phone'] : $employee?->emergency_contact_phone,
-            'profile_photo' => $profilePhotoPath,
             'profile_photo_path' => $profilePhotoPath,
             'hire_date' => array_key_exists('hire_date', $data) ? $data['hire_date'] : $employee?->hire_date,
             'employment_type' => array_key_exists('employment_type', $data) ? $data['employment_type'] : $employee?->employment_type,
@@ -518,6 +520,25 @@ class EmployeeService
     private function generatedEmployeeCode(Employee $employee): string
     {
         return sprintf('EMP%06d', $employee->id);
+    }
+
+    private function syncLinkedUserName(Employee $employee): void
+    {
+        $employee->loadMissing('user');
+
+        if ($employee->user === null) {
+            return;
+        }
+
+        $canonicalName = $employee->full_name;
+
+        if ($employee->user->getRawOriginal('name') === $canonicalName) {
+            return;
+        }
+
+        $employee->user->forceFill([
+            'name' => $canonicalName,
+        ])->save();
     }
 
     private function updateStatus(int $id, EmployeeStatus $status, ?User $actor, string $event, string $description): Employee

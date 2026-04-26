@@ -20,6 +20,8 @@ class AuthService
      */
     private const PROFILE_RELATIONS = [
         'roles',
+        'roles.permissions',
+        'permissions',
         'employee.department',
         'employee.branch',
         'employee.currentPosition',
@@ -123,7 +125,7 @@ class AuthService
             throw new UnauthorizedHttpException('Bearer', 'Unauthenticated.');
         }
 
-        return $user->load(['employee', 'roles', 'employee.manager', 'employee.currentPosition', 'employee.department']);
+        return $user->load(self::PROFILE_RELATIONS);
     }
 
     public function profile(?User $user): User

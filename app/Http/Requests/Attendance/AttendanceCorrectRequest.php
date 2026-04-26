@@ -2,16 +2,19 @@
 
 namespace App\Http\Requests\Attendance;
 
+use App\PermissionName;
 use App\Services\Attendance\AttendanceStatus;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class AttendanceCorrectRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user('api') !== null;
+        $user = $this->user('api') ?? $this->user();
+
+        return $user?->can(PermissionName::AttendanceManage->value) ?? false;
     }
 
     /**

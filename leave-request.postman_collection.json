@@ -1,764 +1,764 @@
 {
-  "info": {
-    "_postman_id": "d9c2d2ab-7a94-4c5b-8f3a-hr-back-end-leave-request",
-    "name": "HR Back End - Leave Request",
-    "description": "Postman collection for leave type lookup, employee leave requests, manager review, and HR final approval.\n\nCurrent documented leave policy snapshot:\n- Sick Leave: paid leave, maximum 7 days per year\n- Special Leave: paid leave, maximum 7 days per year\n- Maternity Leave: 90 days per pregnancy, paid at 50 percent of salary\n- Unpaid Leave: no fixed maximum days per year by default, follows the standard line-manager then HR-authority workflow, uses the same advance notice thresholds as annual leave, does not deduct from leave balance, and is tracked for history and audit\n\nApproval workflow notes:\n- manager-stage approval is resolved from employee.leave_approver_id first, then falls back to employee.manager_id when leave_approver_id is null\n- if leave_approver_id is set, it overrides the direct manager as the approver source\n- approval is based on employee hierarchy configuration, not system role names\n- admin is not part of the leave approval chain unless explicitly assigned as leave_approver_id or acting as the employee's direct CEO manager in the current hierarchy\n- HR approval authority is permission-based and requires leave.approve.hr\n- a generic hr role name is not enough for HR approval\n- self-approval is blocked at every stage\n- normal employee requests continue through manager approval, then HR approval\n- requests from HR-layer employees can be fully approved at manager-review when the acting leave approver is already the final authority for that employee's leave chain\n- requests from employees whose direct manager is the CEO are fully approved immediately when that CEO is the acting approver",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-  },
-  "variable": [
-    {
-      "key": "base_url",
-      "value": "http://localhost:8000/api"
-    },
-    {
-      "key": "email",
-      "value": "emma.employee@example.com"
-    },
-    {
-      "key": "password",
-      "value": "password"
-    },
-    {
-      "key": "manager_email",
-      "value": "mark.ops@example.com"
-    },
-    {
-      "key": "ceo_email",
-      "value": "alice.ceo@example.com"
-    },
-    {
-      "key": "leave_approver_email",
-      "value": "derek.director@example.com"
-    },
-    {
-      "key": "hr_email",
-      "value": "helen.hr@example.com"
-    },
-    {
-      "key": "access_token",
-      "value": ""
-    },
-    {
-      "key": "leave_request_id",
-      "value": "1"
-    },
-    {
-      "key": "employee_id",
-      "value": "1"
-    },
-    {
-      "key": "leave_type_code",
-      "value": "annual"
-    },
-    {
-      "key": "start_date",
-      "value": "2026-04-15"
-    },
-    {
-      "key": "end_date",
-      "value": "2026-04-19"
-    },
-    {
-      "key": "leave_reason",
-      "value": "Family travel plans."
-    },
-    {
-      "key": "duration_type",
-      "value": "full_day"
-    },
-    {
-      "key": "half_day_session",
-      "value": "AM"
-    },
-    {
-      "key": "holiday_year",
-      "value": "2026"
-    },
-    {
-      "key": "balance_year",
-      "value": "2026"
-    }
-  ],
-  "auth": {
-    "type": "bearer",
-    "bearer": [
-      {
-        "key": "token",
-        "value": "{{access_token}}",
-        "type": "string"
-      }
-    ]
-  },
-  "item": [
-    {
-      "name": "Auth",
-      "item": [
-        {
-          "name": "Login As Current User",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const data = pm.response.json();",
-                  "if (data.access_token) {",
-                  "    pm.collectionVariables.set('access_token', data.access_token);",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "noauth"
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/auth/login",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "auth",
-                "login"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Login As Manager",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const data = pm.response.json();",
-                  "if (data.access_token) {",
-                  "    pm.collectionVariables.set('access_token', data.access_token);",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "noauth"
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{manager_email}}\",\n  \"password\": \"{{password}}\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/auth/login",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "auth",
-                "login"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Login As CEO",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const data = pm.response.json();",
-                  "if (data.access_token) {",
-                  "    pm.collectionVariables.set('access_token', data.access_token);",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "noauth"
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{ceo_email}}\",\n  \"password\": \"{{password}}\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/auth/login",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "auth",
-                "login"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Login As Leave Approver",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const data = pm.response.json();",
-                  "if (data.access_token) {",
-                  "    pm.collectionVariables.set('access_token', data.access_token);",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "noauth"
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{leave_approver_email}}\",\n  \"password\": \"{{password}}\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/auth/login",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "auth",
-                "login"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Login As HR",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const data = pm.response.json();",
-                  "if (data.access_token) {",
-                  "    pm.collectionVariables.set('access_token', data.access_token);",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "noauth"
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{hr_email}}\",\n  \"password\": \"{{password}}\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/auth/login",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "auth",
-                "login"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Leave Types",
-      "item": [
-        {
-          "name": "List Leave Types",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/leave/types",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "leave",
-                "types"
-              ]
-            },
-            "description": "Returns active leave types only.\n\nResponse fields include:\n- id\n- code\n- name\n- label\n- description\n- is_paid\n- requires_balance\n- requires_attachment\n- requires_medical_certificate\n- auto_exclude_public_holidays\n- auto_exclude_weekends\n- gender_restriction\n- min_service_days\n- max_days_per_request\n- max_days_per_year\n- supports_half_day\n- supported_half_day_sessions\n- notice_rules\n- notice_rule_text\n- is_requestable\n- request_restriction_reason\n- balance_snapshot\n\nCurrent backend behavior:\n- Annual Leave and Sick Leave support half-day and return supported_half_day_sessions = [\"AM\", \"PM\"]\n- leave types without half-day support return supports_half_day = false and an empty session list\n- Annual Leave returns notice rule metadata\n- Unpaid Leave returns the same notice rule metadata as Annual Leave\n- Annual Leave, Sick Leave, Special Leave, and Maternity Leave are requestable for full-time employees only\n- Unpaid Leave is available for all employee employment types\n- Sick Leave is paid and capped at 7 days per year\n- Special Leave is paid and capped at 7 days per year\n- Maternity Leave is paid, supports up to 90 days per request, and follows a business policy of 90 days per pregnancy paid at 50 percent of salary\n- Unpaid Leave is unpaid, has no fixed max_days_per_year by default, does not deduct from leave balance, still follows the standard manager-then-HR approval flow, and uses the same advance notice thresholds as Annual Leave\n- when the authenticated user has an employee profile, the API also returns employee-aware requestability and current balance snapshot\n\nImportant note:\n- the current API response already exposes is_paid, max_days_per_request, and max_days_per_year\n- the maternity 50 percent salary rule is currently documented policy and stored in backend leave type metadata, but it is not returned as a separate dedicated response field by this endpoint"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Public Holidays",
-      "item": [
-        {
-          "name": "List Public Holidays",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/leave/public-holidays?year={{holiday_year}}",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "leave",
-                "public-holidays"
-              ],
-              "query": [
-                {
-                  "key": "year",
-                  "value": "{{holiday_year}}"
-                }
-              ]
-            },
-            "description": "Returns public holidays from the public_holidays database table for the configured country.\n\nQuery params:\n- year (optional, integer, 4 digits)\n\nResponse fields include:\n- id\n- name\n- holiday_date\n- year\n- country_code\n- is_paid\n- source\n- metadata\n\nBackend behavior:\n- holiday data is always read from the database table and is never hardcoded\n- only valid public holiday rows for the configured country are returned\n- results are ordered by holiday_date, then id\n- year filtering is supported for frontend holiday displays and leave-request flows"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Leave Balances",
-      "item": [
-        {
-          "name": "My Leave Balances",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/leave/me/balances",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "leave",
-                "me",
-                "balances"
-              ]
-            },
-            "description": "Returns the authenticated employee's current leave balance for all leave types from the leave_types table.\n\nResponse fields include:\n- leave_type\n- total_days\n- used_days\n- remaining_days\n- year\n\nBalance rules:\n- calculations use approved leave requests only\n- pending or manager-approved requests do not reduce this endpoint's remaining_days\n- the endpoint uses leave_types as the base dataset, so leave types with no requests still appear with used_days = 0 and remaining_days = total_days when total_days is tracked\n- leave types with max_days_per_year use that yearly cap as total_days\n- annual leave balance is returned per year, not per month, so the current policy converts 1.5 days per month into 18 days per year for total_days\n- unpaid leave does not affect tracked balance, so it returns used history with total_days and remaining_days as null"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Employee Leave Requests",
-      "item": [
-        {
-          "name": "Submit Leave Request",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const data = pm.response.json();",
-                  "if (data.data && data.data.id) {",
-                  "    pm.collectionVariables.set('leave_request_id', data.data.id);",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"{{leave_type_code}}\",\n  \"reason\": \"{{leave_reason}}\",\n  \"duration_type\": \"{{duration_type}}\",\n  \"start_date\": \"{{start_date}}\",\n  \"end_date\": \"{{end_date}}\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/leave/requests",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "leave",
-                "requests"
-              ]
-            },
-            "description": "Employee self-service leave submission.\n\nRequest body:\n- type\n- reason\n- duration_type\n- start_date\n- end_date\n- half_day_session when duration_type = half_day\n\nValidation rules:\n- reason is required for every leave type\n- reason is trimmed server-side\n- whitespace-only values are rejected\n- reason must be at least 3 characters\n- duration_type supports full_day and half_day\n- half_day requires half_day_session = AM or PM\n- half_day must start and end on the same date\n\nBackend rules:\n- Annual Leave, Sick Leave, Special Leave, and Maternity Leave are available to full-time employees only\n- probation employees cannot request annual leave and must use unpaid leave instead\n- Unpaid Leave is available for all employee employment types\n- full-time employees can use annual leave immediately by company policy\n- Annual Leave and Sick Leave support half-day requests\n- Sick Leave is paid leave with a maximum of 7 days per year\n- Special Leave is paid leave with a maximum of 7 days per year\n- Maternity Leave follows a 90-days-per-pregnancy policy and is paid at 50 percent of salary\n- Unpaid Leave has no fixed maximum days per year by default, still requires manager then HR approval, does not deduct from leave balance, is tracked for history and audit only, and follows the same advance notice thresholds as Annual Leave\n- Annual Leave and Unpaid Leave notice rules apply in this order:\n  - if total_days > 4, start date must be at least 7 days after request date\n  - else if total_days > 2, start date must be at least 3 days after request date\n- half-day total_days = 0.5, so the advance notice threshold does not apply\n- sick leave allows same-day requests and has no advance notice rule\n- overlap, leave-type eligibility, public-holiday/weekend exclusions, and balance validation are enforced server-side\n\nLeave request response fields now include UI-oriented metadata:\n- leave_type_label\n- reason\n- duration_type\n- half_day_session\n- total_days\n- status_label\n- cancelable\n- approval_stage\n- manager_approval_status\n- hr_approval_status\n- approval_progress\n- submitted_at"
-          }
-        },
-        {
-          "name": "Submit Half Day Leave Request",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"annual\",\n  \"reason\": \"Medical appointment.\",\n  \"duration_type\": \"half_day\",\n  \"half_day_session\": \"{{half_day_session}}\",\n  \"start_date\": \"2026-04-10\",\n  \"end_date\": \"2026-04-10\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/leave/requests",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "leave",
-                "requests"
-              ]
-            },
-            "description": "Half-day leave example.\n\nExpected response highlights:\n- duration_type = half_day\n- half_day_session = AM or PM\n- requested_days = 0.5\n- total_days = 0.5"
-          }
-        },
-        {
-          "name": "My Leave History",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/leave/me/requests?status=pending&per_page=15",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "leave",
-                "me",
-                "requests"
-              ],
-              "query": [
-                {
-                  "key": "status",
-                  "value": "pending"
-                },
-                {
-                  "key": "per_page",
-                  "value": "15"
-                }
-              ]
-            },
-            "description": "Paginated employee leave history.\n\nEach leave item includes:\n- id\n- type\n- leave_type_label\n- reason\n- duration_type\n- half_day_session\n- start_date\n- end_date\n- requested_days\n- total_days\n- status\n- status_label\n- cancelable\n- approval_stage\n- manager_approval_status\n- hr_approval_status\n- employee\n- leave_type\n- balances\n- manager_approved_by\n- manager_approved_at\n- hr_approved_by\n- hr_approved_at\n- approval_progress\n- submitted_at\n- created_at\n- updated_at\n\nThe paginated response now also includes a top-level summary object:\n- total_requests\n- pending_count\n- approved_count\n- rejected_count\n- cancelled_count"
-          }
-        },
-        {
-          "name": "View My Leave Request",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/leave/requests/{{leave_request_id}}",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "leave",
-                "requests",
-                "{{leave_request_id}}"
-              ]
-            },
-            "description": "Returns the full leave request detail with the same leave item fields used by the history/list endpoints, including reason, labels, cancelable flag, approval stage, approval statuses, and approval_progress."
-          }
-        },
-        {
-          "name": "Cancel Leave Request",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/leave/requests/{{leave_request_id}}/cancel",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "leave",
-                "requests",
-                "{{leave_request_id}}",
-                "cancel"
-              ]
-            },
-            "description": "Owner-only action. Backend allows cancellation only while the request is still pending or manager-approved.\n\nResponse includes the same leave request detail fields as other leave request endpoints, and cancelable becomes false after successful cancellation."
-          }
-        }
-      ]
-    },
-    {
-      "name": "Manager Review",
-      "item": [
-        {
-          "name": "List Reviewable Leave Requests",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/leave/requests?status=pending&per_page=20",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "leave",
-                "requests"
-              ],
-              "query": [
-                {
-                  "key": "status",
-                  "value": "pending"
-                },
-                {
-                  "key": "per_page",
-                  "value": "20"
-                }
-              ]
-            },
-              "description": "Review queue endpoint.\n\nVisibility rules:\n- manager-stage reviewers see requests where they are the resolved leave approver\n- the resolved leave approver is employee.leave_approver_id when present, otherwise employee.manager_id\n- users with leave.approve.hr can review the broader queue for HR-stage approval\n- admin can review the broader queue, but admin is not automatically part of the approval chain\n- do not assume a generic hr role alone grants HR approval authority\n\nEach leave item includes the same UI-oriented leave request fields returned by the employee history endpoint, including reason, labels, cancelable flag, and approval progress.\n\nThe paginated response also includes the same top-level summary object with total_requests, pending_count, approved_count, rejected_count, and cancelled_count."
-          }
-        },
-        {
-          "name": "Manager Approve",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"manager_approved\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/leave/requests/{{leave_request_id}}/manager-review",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "leave",
-                "requests",
-                "{{leave_request_id}}",
-                "manager-review"
-              ]
-            },
-              "description": "Manager-stage approval action.\n\nRules:\n- only the resolved leave approver can perform this action\n- the resolved leave approver is employee.leave_approver_id when present, otherwise employee.manager_id\n- self-approval is rejected\n- request must still be pending\n- normal employee requests move to HR review after this step\n- HR-layer requests may become fully approved immediately when this leave approver is already the designated final approver\n- requests whose direct manager is the CEO also become fully approved immediately when that CEO is the acting approver\n\nNormal success response:\n- status = manager_approved\n- status_label = Manager Approved\n- approval_stage = hr_review\n- manager_approval_status = approved\n- hr_approval_status = pending\n\nFinal-approver success response:\n- status = hr_approved\n- status_label = HR Approved\n- approval_stage = completed\n- manager_approval_status = approved\n- hr_approval_status = approved\n- manager_approved_by and hr_approved_by are both set to the designated final approver"
-          }
-        },
-        {
-          "name": "Manager Reject",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"rejected\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/leave/requests/{{leave_request_id}}/manager-review",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "leave",
-                "requests",
-                "{{leave_request_id}}",
-                "manager-review"
-              ]
-              },
-              "description": "Manager-stage rejection action.\n\nRules:\n- only the resolved leave approver can reject here\n- the resolved leave approver is employee.leave_approver_id when present, otherwise employee.manager_id\n- self-approval is rejected\n- request must still be pending\n- a rejection here ends the workflow and no HR action should follow"
-            }
-          }
-        ]
-      },
-    {
-      "name": "HR Final Review",
-      "item": [
-        {
-          "name": "HR Approve",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"hr_approved\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/leave/requests/{{leave_request_id}}/hr-review",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "leave",
-                "requests",
-                "{{leave_request_id}}",
-                "hr-review"
-              ]
-            },
-              "description": "HR-stage final approval action.\n\nRules:\n- only users with leave.approve.hr can perform this action\n- a generic hr role name is not enough\n- backend rejects this action until manager approval is already recorded\n- self-approval is rejected\n- backend re-checks leave policy and balance rules before final approval\n- use this for requests that are still at manager_approved; HR-layer requests already completed by their designated final approver should not call this endpoint again\n\nOn success, response fields reflect:\n- status = hr_approved\n- status_label = HR Approved\n- approval_stage = completed\n- manager_approval_status = approved\n- hr_approval_status = approved"
-          }
-        },
-        {
-          "name": "HR Reject",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"rejected\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/leave/requests/{{leave_request_id}}/hr-review",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "leave",
-                "requests",
-                "{{leave_request_id}}",
-                "hr-review"
-              ]
-              },
-              "description": "HR-stage rejection action.\n\nRules:\n- only users with leave.approve.hr can reject at this stage\n- a generic hr role name is not enough\n- manager approval must already exist before this endpoint is valid\n- self-approval is rejected\n- use this only for requests that are still waiting for HR review"
-            }
-          }
-        ]
-    }
-  ]
+    "info":  {
+                 "_postman_id":  "d9c2d2ab-7a94-4c5b-8f3a-hr-back-end-leave-request",
+                 "name":  "HR Back End - Leave Request",
+                 "description":  "Postman collection for leave type lookup, employee leave requests, manager review, and HR final approval.\n\nCurrent documented leave policy snapshot:\n- Sick Leave: paid leave, maximum 7 days per year\n- Special Leave: paid leave, maximum 7 days per year\n- Maternity Leave: 90 days per pregnancy, paid at 50 percent of salary\n- Unpaid Leave: no fixed maximum days per year by default, follows the standard line-manager then HR-authority workflow, uses the same advance notice thresholds as annual leave, does not deduct from leave balance, and is tracked for history and audit\n\nApproval workflow notes:\n- manager-stage approval is resolved from employee.leave_approver_id first, then falls back to employee.manager_id when leave_approver_id is null\n- if leave_approver_id is set, it overrides the direct manager as the approver source\n- approval is based on employee hierarchy configuration, not system role names\n- admin is not part of the leave approval chain unless explicitly assigned as leave_approver_id or acting as the employee\u0027s direct CEO manager in the current hierarchy\n- HR approval authority is permission-based and requires leave.approve.hr\n- a generic hr role name is not enough for HR approval\n- self-approval is blocked at every stage\n- normal employee requests continue through manager approval, then HR approval\n- requests from HR-layer employees can be fully approved at manager-review when the acting leave approver is already the final authority for that employee\u0027s leave chain\n- requests from employees whose direct manager is the CEO are fully approved immediately when that CEO is the acting approver",
+                 "schema":  "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+             },
+    "variable":  [
+                     {
+                         "key":  "base_url",
+                         "value":  "http://localhost:8000/api"
+                     },
+                     {
+                         "key":  "email",
+                         "value":  "emma.employee@example.com"
+                     },
+                     {
+                         "key":  "password",
+                         "value":  "password"
+                     },
+                     {
+                         "key":  "manager_email",
+                         "value":  "mark.ops@example.com"
+                     },
+                     {
+                         "key":  "ceo_email",
+                         "value":  "alice.ceo@example.com"
+                     },
+                     {
+                         "key":  "leave_approver_email",
+                         "value":  "derek.director@example.com"
+                     },
+                     {
+                         "key":  "hr_email",
+                         "value":  "helen.hr@example.com"
+                     },
+                     {
+                         "key":  "access_token",
+                         "value":  ""
+                     },
+                     {
+                         "key":  "leave_request_id",
+                         "value":  "1"
+                     },
+                     {
+                         "key":  "employee_id",
+                         "value":  "1"
+                     },
+                     {
+                         "key":  "leave_type_code",
+                         "value":  "annual"
+                     },
+                     {
+                         "key":  "start_date",
+                         "value":  "2026-04-15"
+                     },
+                     {
+                         "key":  "end_date",
+                         "value":  "2026-04-19"
+                     },
+                     {
+                         "key":  "leave_reason",
+                         "value":  "Family travel plans."
+                     },
+                     {
+                         "key":  "duration_type",
+                         "value":  "full_day"
+                     },
+                     {
+                         "key":  "half_day_session",
+                         "value":  "AM"
+                     },
+                     {
+                         "key":  "holiday_year",
+                         "value":  "2026"
+                     },
+                     {
+                         "key":  "balance_year",
+                         "value":  "2026"
+                     }
+                 ],
+    "auth":  {
+                 "type":  "bearer",
+                 "bearer":  [
+                                {
+                                    "key":  "token",
+                                    "value":  "{{access_token}}",
+                                    "type":  "string"
+                                }
+                            ]
+             },
+    "item":  [
+                 {
+                     "name":  "Auth",
+                     "item":  [
+                                  {
+                                      "name":  "Login As Current User",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "const data = pm.response.json();",
+                                                                                    "if (data.access_token) {",
+                                                                                    "    pm.collectionVariables.set(\u0027access_token\u0027, data.access_token);",
+                                                                                    "}"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/auth/login",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "auth",
+                                                                               "login"
+                                                                           ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Login As Manager",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "const data = pm.response.json();",
+                                                                                    "if (data.access_token) {",
+                                                                                    "    pm.collectionVariables.set(\u0027access_token\u0027, data.access_token);",
+                                                                                    "}"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"email\": \"{{manager_email}}\",\n  \"password\": \"{{password}}\"\n}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/auth/login",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "auth",
+                                                                               "login"
+                                                                           ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Login As CEO",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "const data = pm.response.json();",
+                                                                                    "if (data.access_token) {",
+                                                                                    "    pm.collectionVariables.set(\u0027access_token\u0027, data.access_token);",
+                                                                                    "}"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"email\": \"{{ceo_email}}\",\n  \"password\": \"{{password}}\"\n}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/auth/login",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "auth",
+                                                                               "login"
+                                                                           ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Login As Leave Approver",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "const data = pm.response.json();",
+                                                                                    "if (data.access_token) {",
+                                                                                    "    pm.collectionVariables.set(\u0027access_token\u0027, data.access_token);",
+                                                                                    "}"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"email\": \"{{leave_approver_email}}\",\n  \"password\": \"{{password}}\"\n}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/auth/login",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "auth",
+                                                                               "login"
+                                                                           ]
+                                                              }
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Login As HR",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "const data = pm.response.json();",
+                                                                                    "if (data.access_token) {",
+                                                                                    "    pm.collectionVariables.set(\u0027access_token\u0027, data.access_token);",
+                                                                                    "}"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "auth":  {
+                                                                   "type":  "noauth"
+                                                               },
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"email\": \"{{hr_email}}\",\n  \"password\": \"{{password}}\"\n}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/auth/login",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "auth",
+                                                                               "login"
+                                                                           ]
+                                                              }
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Leave Types",
+                     "item":  [
+                                  {
+                                      "name":  "List Leave Types",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/leave/types",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "leave",
+                                                                               "types"
+                                                                           ]
+                                                              },
+                                                      "description":  "Returns active leave types only.\n\nResponse fields include:\n- id\n- code\n- name\n- label\n- description\n- is_paid\n- requires_balance\n- requires_attachment\n- requires_medical_certificate\n- auto_exclude_public_holidays\n- auto_exclude_weekends\n- gender_restriction\n- min_service_days\n- max_days_per_request\n- max_days_per_year\n- supports_half_day\n- supported_half_day_sessions\n- notice_rules\n- notice_rule_text\n- is_requestable\n- request_restriction_reason\n- balance_snapshot\n\nCurrent backend behavior:\n- Annual Leave and Sick Leave support half-day and return supported_half_day_sessions = [\"AM\", \"PM\"]\n- leave types without half-day support return supports_half_day = false and an empty session list\n- Annual Leave returns notice rule metadata\n- Unpaid Leave returns the same notice rule metadata as Annual Leave\n- Annual Leave, Sick Leave, Special Leave, and Maternity Leave are requestable for full-time employees only\n- Unpaid Leave is available for all employee employment types\n- Sick Leave is paid and capped at 7 days per year\n- Special Leave is paid and capped at 7 days per year\n- Maternity Leave is paid, supports up to 90 days per request, and follows a business policy of 90 days per pregnancy paid at 50 percent of salary\n- Unpaid Leave is unpaid, has no fixed max_days_per_year by default, does not deduct from leave balance, still follows the standard manager-then-HR approval flow, and uses the same advance notice thresholds as Annual Leave\n- when the authenticated user has an employee profile, the API also returns employee-aware requestability and current balance snapshot\n\nImportant note:\n- the current API response already exposes is_paid, max_days_per_request, and max_days_per_year\n- the maternity 50 percent salary rule is currently documented policy and stored in backend leave type metadata, but it is not returned as a separate dedicated response field by this endpoint"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Public Holidays",
+                     "item":  [
+                                  {
+                                      "name":  "List Public Holidays",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/leave/public-holidays?year={{holiday_year}}",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "leave",
+                                                                               "public-holidays"
+                                                                           ],
+                                                                  "query":  [
+                                                                                {
+                                                                                    "key":  "year",
+                                                                                    "value":  "{{holiday_year}}"
+                                                                                }
+                                                                            ]
+                                                              },
+                                                      "description":  "Returns public holidays from the public_holidays database table for the configured country.\n\nQuery params:\n- year (optional, integer, 4 digits)\n\nResponse fields include:\n- id\n- name\n- holiday_date\n- year\n- country_code\n- is_paid\n- source\n- metadata\n\nBackend behavior:\n- holiday data is always read from the database table and is never hardcoded\n- only valid public holiday rows for the configured country are returned\n- results are ordered by holiday_date, then id\n- year filtering is supported for frontend holiday displays and leave-request flows"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Leave Balances",
+                     "item":  [
+                                  {
+                                      "name":  "My Leave Balances",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/leave/me/balances",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "leave",
+                                                                               "me",
+                                                                               "balances"
+                                                                           ]
+                                                              },
+                                                      "description":  "Returns the authenticated employee\u0027s current leave balance for all leave types from the leave_types table.\n\nResponse fields include:\n- leave_type\n- total_days\n- used_days\n- remaining_days\n- year\n\nBalance rules:\n- calculations use approved leave requests only\n- pending or manager-approved requests do not reduce this endpoint\u0027s remaining_days\n- the endpoint uses leave_types as the base dataset, so leave types with no requests still appear with used_days = 0 and remaining_days = total_days when total_days is tracked\n- leave types with max_days_per_year use that yearly cap as total_days\n- annual leave balance is returned per year, not per month, so the current policy converts 1.5 days per month into 18 days per year for total_days\n- unpaid leave does not affect tracked balance, so it returns used history with total_days and remaining_days as null"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Employee Leave Requests",
+                     "item":  [
+                                  {
+                                      "name":  "Submit Leave Request",
+                                      "event":  [
+                                                    {
+                                                        "listen":  "test",
+                                                        "script":  {
+                                                                       "type":  "text/javascript",
+                                                                       "exec":  [
+                                                                                    "const data = pm.response.json();",
+                                                                                    "if (data.data \u0026\u0026 data.data.id) {",
+                                                                                    "    pm.collectionVariables.set(\u0027leave_request_id\u0027, data.data.id);",
+                                                                                    "}"
+                                                                                ]
+                                                                   }
+                                                    }
+                                                ],
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"type\": \"{{leave_type_code}}\",\n  \"reason\": \"{{leave_reason}}\",\n  \"duration_type\": \"{{duration_type}}\",\n  \"start_date\": \"{{start_date}}\",\n  \"end_date\": \"{{end_date}}\"\n}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/leave/requests",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "leave",
+                                                                               "requests"
+                                                                           ]
+                                                              },
+                                                      "description":  "Employee self-service leave submission.\n\nRequest body:\n- type\n- reason\n- duration_type\n- start_date\n- end_date\n- half_day_session when duration_type = half_day\n\nValidation rules:\n- reason is required for every leave type\n- reason is trimmed server-side\n- whitespace-only values are rejected\n- reason must be at least 3 characters\n- duration_type supports full_day and half_day\n- half_day requires half_day_session = AM or PM\n- half_day must start and end on the same date\n\nBackend rules:\n- Annual Leave, Sick Leave, Special Leave, and Maternity Leave are available to full-time employees only\n- probation employees cannot request annual leave and must use unpaid leave instead\n- Unpaid Leave is available for all employee employment types\n- full-time employees can use annual leave immediately by company policy\n- Annual Leave and Sick Leave support half-day requests\n- Sick Leave is paid leave with a maximum of 7 days per year\n- Special Leave is paid leave with a maximum of 7 days per year\n- Maternity Leave follows a 90-days-per-pregnancy policy and is paid at 50 percent of salary\n- Unpaid Leave has no fixed maximum days per year by default, still requires manager then HR approval, does not deduct from leave balance, is tracked for history and audit only, and follows the same advance notice thresholds as Annual Leave\n- Annual Leave and Unpaid Leave notice rules apply in this order:\n  - if total_days \u003e 4, start date must be at least 7 days after request date\n  - else if total_days \u003e 2, start date must be at least 3 days after request date\n- half-day total_days = 0.5, so the advance notice threshold does not apply\n- sick leave allows same-day requests and has no advance notice rule\n- overlap, leave-type eligibility, public-holiday/weekend exclusions, and balance validation are enforced server-side\n\nLeave request response fields now include UI-oriented metadata:\n- leave_type_label\n- reason\n- duration_type\n- half_day_session\n- total_days\n- status_label\n- cancelable\n- approval_stage\n- manager_approval_status\n- hr_approval_status\n- approval_progress\n- submitted_at"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Submit Half Day Leave Request",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"type\": \"annual\",\n  \"reason\": \"Medical appointment.\",\n  \"duration_type\": \"half_day\",\n  \"half_day_session\": \"{{half_day_session}}\",\n  \"start_date\": \"2026-04-10\",\n  \"end_date\": \"2026-04-10\"\n}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/leave/requests",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "leave",
+                                                                               "requests"
+                                                                           ]
+                                                              },
+                                                      "description":  "Half-day leave example.\n\nExpected response highlights:\n- duration_type = half_day\n- half_day_session = AM or PM\n- requested_days = 0.5\n- total_days = 0.5"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "My Leave History",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/leave/me/requests?status=pending\u0026per_page=15",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "leave",
+                                                                               "me",
+                                                                               "requests"
+                                                                           ],
+                                                                  "query":  [
+                                                                                {
+                                                                                    "key":  "status",
+                                                                                    "value":  "pending"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "per_page",
+                                                                                    "value":  "15"
+                                                                                }
+                                                                            ]
+                                                              },
+                                                      "description":  "Paginated employee leave history.\n\nEach leave item includes:\n- id\n- type\n- leave_type_label\n- reason\n- duration_type\n- half_day_session\n- start_date\n- end_date\n- requested_days\n- total_days\n- status\n- status_label\n- cancelable\n- approval_stage\n- manager_approval_status\n- hr_approval_status\n- employee\n- leave_type\n- balances\n- manager_approved_by\n- manager_approved_at\n- hr_approved_by\n- hr_approved_at\n- approval_progress\n- submitted_at\n- created_at\n- updated_at\n\nThe paginated response now also includes a top-level summary object:\n- total_requests\n- pending_count\n- approved_count\n- rejected_count\n- cancelled_count"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "View My Leave Request",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/leave/requests/{{leave_request_id}}",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "leave",
+                                                                               "requests",
+                                                                               "{{leave_request_id}}"
+                                                                           ]
+                                                              },
+                                                      "description":  "Returns the full leave request detail with the same leave item fields used by the history/list endpoints, including reason, labels, cancelable flag, approval stage, approval statuses, and approval_progress."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Cancel Leave Request",
+                                      "request":  {
+                                                      "method":  "PATCH",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/leave/requests/{{leave_request_id}}/cancel",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "leave",
+                                                                               "requests",
+                                                                               "{{leave_request_id}}",
+                                                                               "cancel"
+                                                                           ]
+                                                              },
+                                                      "description":  "Owner-only action. Backend allows cancellation only while the request is still pending or manager-approved.\n\nResponse includes the same leave request detail fields as other leave request endpoints, and cancelable becomes false after successful cancellation."
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Manager Review",
+                     "item":  [
+                                  {
+                                      "name":  "List Reviewable Leave Requests",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/leave/requests?status=pending\u0026per_page=20",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "leave",
+                                                                               "requests"
+                                                                           ],
+                                                                  "query":  [
+                                                                                {
+                                                                                    "key":  "status",
+                                                                                    "value":  "pending"
+                                                                                },
+                                                                                {
+                                                                                    "key":  "per_page",
+                                                                                    "value":  "20"
+                                                                                }
+                                                                            ]
+                                                              },
+                                                      "description":  "Review queue endpoint.\n\nVisibility rules:\n- manager-stage reviewers see requests where they are the resolved leave approver\n- the resolved leave approver is employee.leave_approver_id when present, otherwise employee.manager_id\n- users with leave.approve.hr can review the broader queue for HR-stage approval\n- admin can review the broader queue, but admin is not automatically part of the approval chain\n- do not assume a generic hr role alone grants HR approval authority\n\nEach leave item includes the same UI-oriented leave request fields returned by the employee history endpoint, including reason, labels, cancelable flag, and approval progress.\n\nThe paginated response also includes the same top-level summary object with total_requests, pending_count, approved_count, rejected_count, and cancelled_count."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Manager Approve",
+                                      "request":  {
+                                                      "method":  "PATCH",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"status\": \"manager_approved\"\n}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/leave/requests/{{leave_request_id}}/manager-review",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "leave",
+                                                                               "requests",
+                                                                               "{{leave_request_id}}",
+                                                                               "manager-review"
+                                                                           ]
+                                                              },
+                                                      "description":  "Manager-stage approval action.\n\nRules:\n- only the resolved leave approver can perform this action\n- the resolved leave approver is employee.leave_approver_id when present, otherwise employee.manager_id\n- self-approval is rejected\n- request must still be pending\n- normal employee requests move to HR review after this step\n- HR-layer requests may become fully approved immediately when this leave approver is already the designated final approver\n- requests whose direct manager is the CEO also become fully approved immediately when that CEO is the acting approver\n\nNormal success response:\n- status = manager_approved\n- status_label = Manager Approved\n- approval_stage = hr_review\n- manager_approval_status = approved\n- hr_approval_status = pending\n\nFinal-approver success response:\n- status = hr_approved\n- status_label = HR Approved\n- approval_stage = completed\n- manager_approval_status = approved\n- hr_approval_status = approved\n- manager_approved_by and hr_approved_by are both set to the designated final approver"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Manager Reject",
+                                      "request":  {
+                                                      "method":  "PATCH",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"status\": \"rejected\"\n}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/leave/requests/{{leave_request_id}}/manager-review",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "leave",
+                                                                               "requests",
+                                                                               "{{leave_request_id}}",
+                                                                               "manager-review"
+                                                                           ]
+                                                              },
+                                                      "description":  "Manager-stage rejection action.\n\nRules:\n- only the resolved leave approver can reject here\n- the resolved leave approver is employee.leave_approver_id when present, otherwise employee.manager_id\n- self-approval is rejected\n- request must still be pending\n- a rejection here ends the workflow and no HR action should follow"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "HR Final Review",
+                     "item":  [
+                                  {
+                                      "name":  "HR Approve",
+                                      "request":  {
+                                                      "method":  "PATCH",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"status\": \"hr_approved\"\n}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/leave/requests/{{leave_request_id}}/hr-review",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "leave",
+                                                                               "requests",
+                                                                               "{{leave_request_id}}",
+                                                                               "hr-review"
+                                                                           ]
+                                                              },
+                                                      "description":  "HR-stage final approval action.\n\nRules:\n- only users with leave.approve.hr can perform this action\n- a generic hr role name is not enough\n- backend rejects this action until manager approval is already recorded\n- self-approval is rejected\n- backend re-checks leave policy and balance rules before final approval\n- use this for requests that are still at manager_approved; HR-layer requests already completed by their designated final approver should not call this endpoint again\n\nOn success, response fields reflect:\n- status = hr_approved\n- status_label = HR Approved\n- approval_stage = completed\n- manager_approval_status = approved\n- hr_approval_status = approved"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "HR Reject",
+                                      "request":  {
+                                                      "method":  "PATCH",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Accept",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"status\": \"rejected\"\n}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{base_url}}/leave/requests/{{leave_request_id}}/hr-review",
+                                                                  "host":  [
+                                                                               "{{base_url}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "leave",
+                                                                               "requests",
+                                                                               "{{leave_request_id}}",
+                                                                               "hr-review"
+                                                                           ]
+                                                              },
+                                                      "description":  "HR-stage rejection action.\n\nRules:\n- only users with leave.approve.hr can reject at this stage\n- a generic hr role name is not enough\n- manager approval must already exist before this endpoint is valid\n- self-approval is rejected\n- use this only for requests that are still waiting for HR review"
+                                                  }
+                                  }
+                              ]
+                 }
+             ]
 }

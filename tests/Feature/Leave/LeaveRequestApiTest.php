@@ -341,6 +341,40 @@ it('supports half-day leave requests with am pm sessions and 0.5 total days', fu
         ->and($leaveRequest->half_day_session)->toBe('AM');
 });
 
+it('allows unpaid leave requests to use the existing half-day flow', function () {
+    [$employeeUser] = createLeaveActors(
+        hireDate: '2026-04-01',
+        employeeEmploymentType: 'probation',
+        today: '2026-04-10',
+    );
+
+    Passport::actingAs($employeeUser);
+
+    $response = $this->postJson('/api/leave/requests', [
+        'type' => 'unpaid',
+        'reason' => 'Personal matter.',
+        'duration_type' => 'half_day',
+        'half_day_session' => 'PM',
+        'start_date' => '2026-04-10',
+        'end_date' => '2026-04-10',
+    ]);
+
+    $response->assertCreated()
+        ->assertJsonPath('data.type', 'unpaid')
+        ->assertJsonPath('data.duration_type', 'half_day')
+        ->assertJsonPath('data.half_day_session', 'PM')
+        ->assertJsonPath('data.requested_days', 0.5)
+        ->assertJsonPath('data.total_days', 0.5)
+        ->assertJsonPath('data.status', LeaveRequestStatus::Pending)
+        ->assertJsonPath('data.approval_stage', 'manager_review');
+
+    $leaveRequest = LeaveRequest::query()->latest('id')->firstOrFail();
+
+    expect($leaveRequest->type)->toBe('unpaid')
+        ->and($leaveRequest->duration_type)->toBe('half_day')
+        ->and($leaveRequest->half_day_session)->toBe('PM');
+});
+
 it('requires a valid half-day session and same-day range for half-day requests', function () {
     [$employeeUser] = createLeaveActors(
         hireDate: '2026-04-01',
@@ -381,6 +415,16 @@ it('requires a valid half-day session and same-day range for half-day requests',
     ])
         ->assertUnprocessable()
         ->assertJsonPath('errors.end_date.0', 'Half-day leave must start and end on the same date.');
+
+    $this->postJson('/api/leave/requests', [
+        'type' => 'unpaid',
+        'reason' => 'Personal matter.',
+        'duration_type' => 'half_day',
+        'start_date' => '2026-04-10',
+        'end_date' => '2026-04-10',
+    ])
+        ->assertUnprocessable()
+        ->assertJsonPath('errors.half_day_session.0', 'Please select AM or PM for a half-day leave request.');
 });
 
 it('requires a non-empty reason when submitting a leave request', function () {
@@ -538,6 +582,7 @@ it('uses a dedicated leave approver before falling back to manager_id', function
         'employment_type' => 'full_time',
         'status' => 'active',
     ]);
+    $alternateApproverUser = grantPermissionsToUser($alternateApproverUser, ['leave.approve.manager']);
 
     $employeeUser->employee->update([
         'leave_approver_id' => $alternateApproverEmployee->id,
@@ -614,6 +659,7 @@ it('fully approves hr-layer leave when the designated final approver acts', func
         'employment_type' => 'full_time',
         'status' => 'active',
     ]);
+    $headHrUser = grantPermissionsToUser($headHrUser, ['leave.approve.manager']);
 
     $hrOfficerUser = createLeaveUserWithRole('hr', 'hr.layer.employee@example.com');
     $hrOfficerEmployee = Employee::query()->create([
@@ -689,6 +735,7 @@ it('fully approves head hr leave when the designated executive final approver ac
         'employment_type' => 'full_time',
         'status' => 'active',
     ]);
+    $adminUser = grantPermissionsToUser($adminUser, ['leave.approve.manager']);
 
     $headHrUser = createLeaveUserWithRole('hr', 'head.hr.final@example.com');
     $headHrEmployee = Employee::query()->create([
@@ -762,6 +809,7 @@ it('fully approves diana dual leave when the ceo line manager acts as final appr
         'employment_type' => 'full_time',
         'status' => 'active',
     ]);
+    $ceoUser = grantPermissionsToUser($ceoUser, ['leave.approve.manager']);
 
     $dianaUser = createLeaveUserWithRole('manager', 'diana.dual@example.com');
     $dianaEmployee = Employee::query()->create([
@@ -848,7 +896,7 @@ it('keeps hr approval as a separate step even when the leave approver also has h
 });
 
 it('rejects hr-stage approval when the user lacks leave.approve.hr permission', function () {
-    [$employeeUser, $managerUser, $hrUser] = createLeaveActors();
+    [$employeeUser, $managerUser] = createLeaveActors();
 
     $leaveRequest = LeaveRequest::query()->create([
         'employee_id' => $employeeUser->employee->id,
@@ -861,7 +909,7 @@ it('rejects hr-stage approval when the user lacks leave.approve.hr permission', 
         'status' => LeaveRequestStatus::ManagerApproved,
     ]);
 
-    Passport::actingAs($hrUser);
+    Passport::actingAs($managerUser);
 
     $this->patchJson("/api/leave/requests/{$leaveRequest->id}/hr-review", [
         'status' => LeaveRequestStatus::HrApproved,
@@ -1172,7 +1220,12 @@ function grantPermissionsToUser(User $user, array $permissionNames): User
     $user->loadMissing('roles');
 
     $user->roles->each(function (Role $role) use ($permissionIds): void {
-        $role->permissions()->syncWithoutDetaching($permissionIds);
+        $existingPermissionIds = $role->loadMissing('permissions')->permissions->modelKeys();
+
+        $role->syncPermissions(array_values(array_unique([
+            ...$existingPermissionIds,
+            ...$permissionIds,
+        ])));
     });
 
     return $user->fresh('employee.department', 'roles.permissions');

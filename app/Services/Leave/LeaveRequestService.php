@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\User;
+use App\PermissionName;
 use App\Services\AuditLogService;
 use App\Services\PublicHoliday\PublicHolidayService;
 use Carbon\Carbon;
@@ -23,8 +24,6 @@ use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 
 class LeaveRequestService
 {
-    private const HR_APPROVAL_PERMISSION = 'leave.approve.hr';
-
     private const CEO_POSITION_TITLE = 'chief executive officer';
 
     public function __construct(
@@ -259,7 +258,7 @@ class LeaveRequestService
      */
     public function managerReview(?User $authenticatedUser, LeaveRequest $leaveRequest, array $data): array
     {
-        $authenticatedUser = $this->ensureAuthenticated($authenticatedUser);
+        $authenticatedUser = $this->ensureManagerApprover($authenticatedUser);
         $reviewer = $this->ensureEmployeeProfile($authenticatedUser);
 
         return DB::transaction(function () use ($authenticatedUser, $reviewer, $leaveRequest, $data): array {
@@ -631,10 +630,21 @@ class LeaveRequestService
     {
         $authenticatedUser = $this->ensureAuthenticated($authenticatedUser);
 
-        if (
-            ! $this->hasAnyRole($authenticatedUser, ['manager', 'hr', 'admin'])
-            && ! $this->hasHrApprovalAuthority($authenticatedUser)
-        ) {
+        if (! $authenticatedUser->canAny([
+            PermissionName::LeaveRequestViewAny->value,
+            PermissionName::LeaveRequestViewAssigned->value,
+        ])) {
+            throw new HttpException(403, 'Forbidden.');
+        }
+
+        return $authenticatedUser;
+    }
+
+    private function ensureManagerApprover(?User $authenticatedUser): User
+    {
+        $authenticatedUser = $this->ensureAuthenticated($authenticatedUser);
+
+        if (! $this->hasPermission($authenticatedUser, PermissionName::LeaveApproveManager->value)) {
             throw new HttpException(403, 'Forbidden.');
         }
 
@@ -652,36 +662,19 @@ class LeaveRequestService
         return $authenticatedUser;
     }
 
-    private function hasRole(User $user, string $role): bool
-    {
-        return $user->loadMissing('roles')->roles->contains('name', $role);
-    }
-
-    /**
-     * @param  array<int, string>  $roles
-     */
-    private function hasAnyRole(User $user, array $roles): bool
-    {
-        return $user->loadMissing('roles')->roles->pluck('name')->intersect($roles)->isNotEmpty();
-    }
-
     private function hasHrApprovalAuthority(User $user): bool
     {
-        return $this->hasPermission($user, self::HR_APPROVAL_PERMISSION);
+        return $this->hasPermission($user, PermissionName::LeaveApproveHr->value);
     }
 
     private function hasPermission(User $user, string $permission): bool
     {
-        return $user->loadMissing('roles.permissions')->roles
-            ->flatMap(fn (mixed $role): Collection => $role->permissions)
-            ->contains('name', $permission);
+        return $user->can($permission);
     }
 
     private function canReviewAllLeaveRequests(User $authenticatedUser): bool
     {
-        return $this->hasRole($authenticatedUser, 'admin')
-            || $this->hasRole($authenticatedUser, 'hr')
-            || $this->hasHrApprovalAuthority($authenticatedUser);
+        return $authenticatedUser->can(PermissionName::LeaveRequestViewAny->value);
     }
 
     private function leaveApproverIdFor(?Employee $employee): ?int
@@ -1473,6 +1466,7 @@ class LeaveRequestService
         return in_array($leaveType->code, [
             LeaveTypeCode::Annual->value,
             LeaveTypeCode::Sick->value,
+            LeaveTypeCode::Unpaid->value,
         ], true);
     }
 

@@ -2,49 +2,241 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
+use App\PermissionName;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Permission\Models\Role as SpatieRole;
 
-#[Fillable(['name', 'description'])]
-class Role extends Model
+class Role extends SpatieRole
 {
     use HasFactory, LogsActivity, SoftDeletes;
+
+    public const MANAGED_ROLE_NAMES = [
+        'admin',
+        'employee',
+        'hr',
+        'hr_head',
+        'hr_manager',
+        'manager',
+    ];
+
+    protected string $guard_name = 'api';
+
+    protected $fillable = [
+        'name',
+        'description',
+        'guard_name',
+    ];
+
+    protected static function booted(): void
+    {
+        static::saved(function (self $role): void {
+            $permissions = self::defaultPermissionNamesFor($role->name);
+
+            if ($permissions === []) {
+                return;
+            }
+
+            $currentPermissions = $role->permissions()
+                ->orderBy('name')
+                ->pluck('name')
+                ->all();
+
+            $expectedPermissions = collect($permissions)
+                ->sort()
+                ->values()
+                ->all();
+
+            if ($currentPermissions === $expectedPermissions) {
+                return;
+            }
+
+            $role->syncPermissions($permissions);
+        });
+    }
 
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
             ->useLogName('access_control')
-            ->logOnly(['name', 'description'])
+            ->logOnly(['name', 'description', 'guard_name'])
             ->logOnlyDirty()
             ->dontLogIfAttributesChangedOnly(['updated_at'])
             ->dontSubmitEmptyLogs();
     }
 
-    public function permissions(): BelongsToMany
+    /**
+     * @return array<int, string>
+     */
+    public static function managedRoleNames(): array
     {
-        return $this->belongsToMany(Permission::class, 'role_permissions')
-            ->withTimestamps();
+        return self::MANAGED_ROLE_NAMES;
     }
 
-    public function users(): BelongsToMany
+    /**
+     * @return array<int, string>
+     */
+    public static function defaultRoleNamesForPermission(string $permissionName): array
     {
-        return $this->belongsToMany(User::class, 'user_roles')
-            ->withTimestamps();
+        return collect(self::managedRoleNames())
+            ->filter(fn (string $roleName): bool => in_array($permissionName, self::defaultPermissionNamesFor($roleName), true))
+            ->values()
+            ->all();
     }
 
-    public function rolePermissions(): HasMany
+    /**
+     * @return array<int, string>
+     */
+    public static function defaultPermissionNamesFor(string $roleName): array
     {
-        return $this->hasMany(RolePermission::class);
-    }
-
-    public function userRoles(): HasMany
-    {
-        return $this->hasMany(UserRole::class);
+        return match ($roleName) {
+            'admin' => [
+                PermissionName::AttendanceCorrectionRequest->value,
+                PermissionName::AuditLogExport->value,
+                PermissionName::AuditLogView->value,
+                PermissionName::AttendanceAuditView->value,
+                PermissionName::AttendanceExport->value,
+                PermissionName::AttendanceExportAny->value,
+                PermissionName::AttendanceManage->value,
+                PermissionName::AttendanceMissingRequest->value,
+                PermissionName::AttendanceRecord->value,
+                PermissionName::AttendanceSummaryAny->value,
+                PermissionName::AttendanceSummarySelf->value,
+                PermissionName::AttendanceView->value,
+                PermissionName::AttendanceViewAny->value,
+                PermissionName::AttendanceViewSelf->value,
+                PermissionName::EmployeeExport->value,
+                PermissionName::EmployeeManage->value,
+                PermissionName::EmployeeUserLinkView->value,
+                PermissionName::EmployeeView->value,
+                PermissionName::EmployeeViewAny->value,
+                PermissionName::EmployeeViewSelf->value,
+                PermissionName::LeaveApproveHr->value,
+                PermissionName::LeaveBalanceViewSelf->value,
+                PermissionName::LeaveRequestCancelSelf->value,
+                PermissionName::LeaveRequestCreate->value,
+                PermissionName::LeaveRequestViewAny->value,
+                PermissionName::LeaveRequestViewAssigned->value,
+                PermissionName::LeaveRequestViewSelf->value,
+                PermissionName::LeaveTypeView->value,
+                PermissionName::LocationView->value,
+                PermissionName::PermissionManage->value,
+                PermissionName::PermissionView->value,
+                PermissionName::PayrollExport->value,
+                PermissionName::PayrollPayslipViewAny->value,
+                PermissionName::PayrollRunApprove->value,
+                PermissionName::PayrollRunCancel->value,
+                PermissionName::PayrollRunGenerate->value,
+                PermissionName::PayrollRunRegenerate->value,
+                PermissionName::PayrollRunMarkPaid->value,
+                PermissionName::PayrollRunView->value,
+                PermissionName::PayrollSalaryManage->value,
+                PermissionName::PayrollSalaryView->value,
+                PermissionName::PositionView->value,
+                PermissionName::RoleAssign->value,
+                PermissionName::RoleManage->value,
+                PermissionName::RoleView->value,
+                PermissionName::UserManage->value,
+                PermissionName::UserPermissionAssign->value,
+                PermissionName::UserRoleAssign->value,
+                PermissionName::UserUpdate->value,
+                PermissionName::UserView->value,
+            ],
+            'employee' => [
+                PermissionName::AttendanceCorrectionRequest->value,
+                PermissionName::AttendanceExport->value,
+                PermissionName::AttendanceMissingRequest->value,
+                PermissionName::AttendanceRecord->value,
+                PermissionName::AttendanceSummarySelf->value,
+                PermissionName::AttendanceView->value,
+                PermissionName::AttendanceViewSelf->value,
+                PermissionName::EmployeeView->value,
+                PermissionName::EmployeeViewSelf->value,
+                PermissionName::LeaveBalanceViewSelf->value,
+                PermissionName::PayrollPayslipViewOwn->value,
+                PermissionName::LeaveRequestCancelSelf->value,
+                PermissionName::LeaveRequestCreate->value,
+                PermissionName::LeaveRequestViewSelf->value,
+                PermissionName::LeaveTypeView->value,
+                PermissionName::LocationView->value,
+            ],
+            'hr' => [
+                PermissionName::AttendanceCorrectionRequest->value,
+                PermissionName::AttendanceExport->value,
+                PermissionName::AttendanceExportAny->value,
+                PermissionName::AttendanceManage->value,
+                PermissionName::AttendanceMissingRequest->value,
+                PermissionName::AttendanceRecord->value,
+                PermissionName::AttendanceSummaryAny->value,
+                PermissionName::AttendanceSummarySelf->value,
+                PermissionName::AttendanceView->value,
+                PermissionName::AttendanceViewAny->value,
+                PermissionName::AttendanceViewSelf->value,
+                PermissionName::EmployeeExport->value,
+                PermissionName::EmployeeManage->value,
+                PermissionName::EmployeeUserLinkView->value,
+                PermissionName::EmployeeView->value,
+                PermissionName::EmployeeViewAny->value,
+                PermissionName::LeaveApproveHr->value,
+                PermissionName::LeaveBalanceViewSelf->value,
+                PermissionName::PayrollRunView->value,
+                PermissionName::PayrollExport->value,
+                PermissionName::PayrollSalaryView->value,
+                PermissionName::LeaveRequestCancelSelf->value,
+                PermissionName::LeaveRequestCreate->value,
+                PermissionName::LeaveRequestViewAny->value,
+                PermissionName::LeaveRequestViewSelf->value,
+                PermissionName::LeaveTypeView->value,
+                PermissionName::LocationView->value,
+                PermissionName::PositionView->value,
+            ],
+            'hr_head', 'hr_manager' => [
+                PermissionName::AttendanceCorrectionRequest->value,
+                PermissionName::AttendanceExport->value,
+                PermissionName::AttendanceExportAny->value,
+                PermissionName::AttendanceManage->value,
+                PermissionName::AttendanceMissingRequest->value,
+                PermissionName::AttendanceRecord->value,
+                PermissionName::AttendanceSummaryAny->value,
+                PermissionName::AttendanceSummarySelf->value,
+                PermissionName::AttendanceView->value,
+                PermissionName::AttendanceViewAny->value,
+                PermissionName::AttendanceViewSelf->value,
+                PermissionName::EmployeeExport->value,
+                PermissionName::EmployeeManage->value,
+                PermissionName::EmployeeUserLinkView->value,
+                PermissionName::EmployeeView->value,
+                PermissionName::EmployeeViewAny->value,
+                PermissionName::LeaveApproveHr->value,
+                PermissionName::LeaveBalanceViewSelf->value,
+                PermissionName::PayrollExport->value,
+                PermissionName::PayrollRunApprove->value,
+                PermissionName::PayrollRunCancel->value,
+                PermissionName::PayrollRunGenerate->value,
+                PermissionName::PayrollRunRegenerate->value,
+                PermissionName::PayrollRunView->value,
+                PermissionName::PayrollSalaryManage->value,
+                PermissionName::PayrollSalaryView->value,
+                PermissionName::LeaveRequestCancelSelf->value,
+                PermissionName::LeaveRequestCreate->value,
+                PermissionName::LeaveRequestViewAny->value,
+                PermissionName::LeaveRequestViewSelf->value,
+                PermissionName::LeaveTypeView->value,
+                PermissionName::LocationView->value,
+                PermissionName::PositionView->value,
+            ],
+            'manager' => [
+                PermissionName::LeaveBalanceViewSelf->value,
+                PermissionName::LeaveApproveManager->value,
+                PermissionName::LeaveRequestCancelSelf->value,
+                PermissionName::LeaveRequestCreate->value,
+                PermissionName::LeaveRequestViewAssigned->value,
+                PermissionName::LeaveRequestViewSelf->value,
+                PermissionName::LeaveTypeView->value,
+            ],
+            default => [],
+        };
     }
 }

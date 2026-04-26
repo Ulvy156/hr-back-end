@@ -6,6 +6,7 @@ use App\Models\Attendance;
 use App\Models\AttendanceCorrectionRequest;
 use App\Models\Employee;
 use App\Models\User;
+use App\PermissionName;
 use App\Services\AuditLogService;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -335,7 +336,7 @@ class AttendanceService
     {
         $authenticatedUser = $this->ensureManagementReader($authenticatedUser);
         $perPage = min(max((int) ($filters['per_page'] ?? config('attendance.management_history_per_page', 20)), 1), 100);
-        $includeAudit = $this->hasRole($authenticatedUser, 'admin');
+        $includeAudit = $authenticatedUser->can(PermissionName::AttendanceAuditView->value);
 
         return $this->filteredAttendanceQuery($filters, $includeAudit)
             ->paginate($perPage)
@@ -352,7 +353,7 @@ class AttendanceService
     public function show(?User $authenticatedUser, Attendance $attendance): array
     {
         $authenticatedUser = $this->ensureManagementReader($authenticatedUser);
-        $includeAudit = $this->hasRole($authenticatedUser, 'admin');
+        $includeAudit = $authenticatedUser->can(PermissionName::AttendanceAuditView->value);
 
         return [
             'data' => $this->transformAttendance(
@@ -1073,7 +1074,7 @@ class AttendanceService
     {
         $authenticatedUser = $this->ensureAuthenticated($authenticatedUser);
 
-        if (! $this->hasAnyRole($authenticatedUser, ['hr', 'admin'])) {
+        if (! $authenticatedUser->can(PermissionName::AttendanceViewAny->value)) {
             throw new HttpException(403, 'Forbidden.');
         }
 
@@ -1084,7 +1085,7 @@ class AttendanceService
     {
         $authenticatedUser = $this->ensureAuthenticated($authenticatedUser);
 
-        if (! $this->hasRole($authenticatedUser, 'hr')) {
+        if (! $authenticatedUser->can(PermissionName::AttendanceManage->value)) {
             throw new HttpException(403, 'Forbidden.');
         }
 
@@ -1095,24 +1096,11 @@ class AttendanceService
     {
         $authenticatedUser = $this->ensureAuthenticated($authenticatedUser);
 
-        if (! $this->hasRole($authenticatedUser, 'admin')) {
+        if (! $authenticatedUser->can(PermissionName::AttendanceAuditView->value)) {
             throw new HttpException(403, 'Forbidden.');
         }
 
         return $authenticatedUser;
-    }
-
-    private function hasRole(User $user, string $role): bool
-    {
-        return $user->loadMissing('roles')->roles->contains('name', $role);
-    }
-
-    /**
-     * @param  array<int, string>  $roles
-     */
-    private function hasAnyRole(User $user, array $roles): bool
-    {
-        return $user->loadMissing('roles')->roles->pluck('name')->intersect($roles)->isNotEmpty();
     }
 
     /**
@@ -1896,7 +1884,7 @@ class AttendanceService
 
         return [
             'id' => $user->id,
-            'name' => $user->name,
+            'name' => $user->displayName(),
         ];
     }
 

@@ -7,8 +7,6 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -16,13 +14,16 @@ use Laravel\Passport\Contracts\OAuthenticatable;
 use Laravel\Passport\HasApiTokens;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Permission\Traits\HasRoles;
 
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements OAuthenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, LogsActivity, Notifiable;
+    use HasApiTokens, HasFactory, HasRoles, LogsActivity, Notifiable;
+
+    protected string $guard_name = 'api';
 
     /**
      * Get the attributes that should be cast.
@@ -52,14 +53,10 @@ class User extends Authenticatable implements OAuthenticatable
         return $this->hasOne(Employee::class);
     }
 
-    public function roles(): BelongsToMany
+    public function displayName(): string
     {
-        return $this->belongsToMany(Role::class, 'user_roles')
-            ->withTimestamps();
-    }
+        $this->loadMissing('employee');
 
-    public function userRoles(): HasMany
-    {
-        return $this->hasMany(UserRole::class);
+        return $this->employee?->full_name ?: (string) $this->getRawOriginal('name');
     }
 }

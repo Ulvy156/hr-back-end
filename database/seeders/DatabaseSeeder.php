@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             LeaveTypeSeeder::class,
+            PayrollTaxRuleSeeder::class,
             PublicHolidaySeeder::class,
             HrmsDemoSeeder::class,
         ]);

@@ -88,7 +88,7 @@ class Employee extends Model
     {
         return Attribute::make(
             get: function (?string $value, array $attributes): ?string {
-                $storedPath = $value ?? $attributes['profile_photo_path'] ?? null;
+                $storedPath = $attributes['profile_photo_path'] ?? $value ?? null;
 
                 if ($storedPath === null || $storedPath === '') {
                     return null;
@@ -194,6 +194,21 @@ class Employee extends Model
             ->orderByDesc('id');
     }
 
+    public function employeeSalaries(): HasMany
+    {
+        return $this->hasMany(EmployeeSalary::class)
+            ->orderByDesc('effective_date')
+            ->orderByDesc('id');
+    }
+
+    public function employeeDependents(): HasMany
+    {
+        return $this->hasMany(EmployeeDependent::class)
+            ->orderByDesc('is_active')
+            ->orderBy('relationship')
+            ->orderBy('name');
+    }
+
     public function attendances(): HasMany
     {
         return $this->hasMany(Attendance::class);
@@ -241,8 +256,13 @@ class Employee extends Model
         return $this->hasMany(Payroll::class);
     }
 
+    public function payrollItems(): HasMany
+    {
+        return $this->hasMany(PayrollItem::class)->orderByDesc('id');
+    }
+
     public function profilePhotoStoragePath(): ?string
     {
-        return $this->getRawOriginal('profile_photo') ?: $this->getRawOriginal('profile_photo_path');
+        return $this->getRawOriginal('profile_photo_path') ?: $this->getRawOriginal('profile_photo');
     }
 }

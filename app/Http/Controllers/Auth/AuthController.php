@@ -7,6 +7,7 @@ use App\Http\Requests\Auth\ChangePasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Resources\Auth\AuthProfileResource;
 use App\Models\User;
+use App\PermissionCatalog;
 use App\Services\Auth\AuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -45,9 +46,14 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        return response()->json(
+        $profile = AuthProfileResource::make(
             $this->authService->me($request->user('api'))
-        );
+        )->resolve($request);
+
+        return response()->json([
+            ...$profile,
+            'permission_catalog' => PermissionCatalog::payload(),
+        ]);
     }
 
     public function profile(Request $request): JsonResponse

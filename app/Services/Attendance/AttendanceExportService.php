@@ -6,6 +6,7 @@ use App\Models\Attendance;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\User;
+use App\PermissionName;
 use App\Services\Attendance\Exports\AttendanceExcelExporter;
 use App\Services\Attendance\Exports\AttendancePdfExporter;
 use App\Services\AuditLogService;
@@ -114,11 +115,11 @@ class AttendanceExportService
 
     private function resolveScope(User $authenticatedUser): string
     {
-        if ($authenticatedUser->roles()->whereIn('name', ['hr', 'admin'])->exists()) {
+        if ($authenticatedUser->can(PermissionName::AttendanceExportAny->value)) {
             return 'all';
         }
 
-        if ($authenticatedUser->roles()->where('name', 'employee')->exists()) {
+        if ($authenticatedUser->can(PermissionName::AttendanceExport->value)) {
             return 'self';
         }
 
