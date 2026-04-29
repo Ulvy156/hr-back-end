@@ -39,7 +39,15 @@ class StoreUserRequest extends FormRequest
                 ),
             ],
             'role_ids' => ['sometimes', 'array', 'max:1'],
-            'role_ids.*' => ['integer', 'distinct', Rule::exists(Role::class, 'id')],
+            'role_ids.*' => [
+                'integer',
+                'distinct',
+                Rule::exists(Role::class, 'id')->where(
+                    fn ($query) => $query
+                        ->where('guard_name', 'api')
+                        ->whereIn('name', Role::managedRoleNames())
+                ),
+            ],
         ];
     }
 }

@@ -15,6 +15,7 @@ class PermissionCatalog
         'employee' => 'Employee',
         'attendance' => 'Attendance',
         'leave' => 'Leave',
+        'overtime' => 'Overtime',
         'payroll' => 'Payroll',
         'user_role_management' => 'User/Role Management',
         'audit_log' => 'Audit Log',
@@ -136,11 +137,20 @@ class PermissionCatalog
                 PermissionName::LeaveRequestViewAny,
                 PermissionName::LeaveRequestViewAssigned,
                 PermissionName::LeaveRequestViewSelf,
+                PermissionName::LeaveTypeManage,
+                PermissionName::HolidayManage,
                 PermissionName::LeaveTypeView => 'leave',
+                PermissionName::OvertimeApproveManager,
+                PermissionName::OvertimeRequestCancel,
+                PermissionName::OvertimeRequestCreate,
+                PermissionName::OvertimeRequestViewAny,
+                PermissionName::OvertimeRequestViewAssigned,
+                PermissionName::OvertimeRequestViewSelf => 'overtime',
                 PermissionName::PayrollRunApprove,
                 PermissionName::PayrollRunCancel,
                 PermissionName::PayrollExport,
                 PermissionName::PayrollRunGenerate,
+                PermissionName::PayrollRunRegenerate,
                 PermissionName::PayrollRunMarkPaid,
                 PermissionName::PayrollRunView,
                 PermissionName::PayrollPayslipViewAny,
@@ -164,6 +174,10 @@ class PermissionCatalog
 
         if (str_starts_with($permissionName, 'payroll.')) {
             return 'payroll';
+        }
+
+        if (str_starts_with($permissionName, 'overtime.')) {
+            return 'overtime';
         }
 
         return 'custom';

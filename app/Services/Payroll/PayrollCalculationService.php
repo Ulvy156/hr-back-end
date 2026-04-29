@@ -3,11 +3,13 @@
 namespace App\Services\Payroll;
 
 use App\LeaveTypeCode;
-use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
+use App\Models\OvertimeRequest;
 use App\Services\Leave\LeaveRequestDurationType;
 use App\Services\Leave\LeaveRequestStatus;
+use App\Services\Overtime\OvertimeRequestStatus;
+use App\Services\Overtime\OvertimeType;
 use App\Services\PublicHoliday\PublicHolidayService;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -103,7 +105,6 @@ class PayrollCalculationService
             $employee,
             $calculationWindow['start'],
             $calculationWindow['end'],
-            $holidayDates,
             $hourlyRate,
         );
         $unpaidLeaveUnits = $this->unpaidLeaveUnits(
@@ -250,14 +251,12 @@ class PayrollCalculationService
     }
 
     /**
-     * @param  array<string, true>  $holidayDates
      * @return array{normal_hours: float, weekend_hours: float, holiday_hours: float, pay: float}
      */
     private function overtimeBreakdown(
         Employee $employee,
         ?CarbonInterface $windowStart,
         ?CarbonInterface $windowEnd,
-        array $holidayDates,
         float $hourlyRate,
     ): array {
         if (! $windowStart instanceof CarbonInterface || ! $windowEnd instanceof CarbonInterface) {
@@ -274,29 +273,23 @@ class PayrollCalculationService
         $holidayHours = 0.0;
         $pay = 0.0;
 
-        Attendance::query()
+        OvertimeRequest::query()
             ->where('employee_id', $employee->id)
-            ->whereBetween('attendance_date', [$windowStart->toDateString(), $windowEnd->toDateString()])
-            ->where('overtime_minutes', '>', 0)
-            ->orderBy('attendance_date')
-            ->each(function (Attendance $attendance) use (&$holidayHours, &$normalHours, &$pay, &$weekendHours, $holidayDates, $hourlyRate): void {
-                $attendanceDate = $attendance->attendance_date?->copy()->startOfDay();
+            ->whereBetween('overtime_date', [$windowStart->toDateString(), $windowEnd->toDateString()])
+            ->where('status', OvertimeRequestStatus::Approved)
+            ->where('minutes', '>', 0)
+            ->orderBy('overtime_date')
+            ->each(function (OvertimeRequest $overtimeRequest) use (&$holidayHours, &$normalHours, &$pay, &$weekendHours, $hourlyRate): void {
+                $hours = max(((int) $overtimeRequest->minutes) / 60, 0);
 
-                if (! $attendanceDate instanceof Carbon) {
-                    return;
-                }
-
-                $hours = max(((int) $attendance->overtime_minutes) / 60, 0);
-                $dateKey = $attendanceDate->toDateString();
-
-                if (array_key_exists($dateKey, $holidayDates)) {
+                if ($overtimeRequest->overtime_type === OvertimeType::Holiday) {
                     $holidayHours += $hours;
                     $pay += $hours * $hourlyRate * self::OT_MULTIPLIER_HOLIDAY;
 
                     return;
                 }
 
-                if ($attendanceDate->isWeekend()) {
+                if ($overtimeRequest->overtime_type === OvertimeType::Weekend) {
                     $weekendHours += $hours;
                     $pay += $hours * $hourlyRate * self::OT_MULTIPLIER_WEEKEND;
 
@@ -378,12 +371,14 @@ class PayrollCalculationService
 
     private function qualifiedTaxDependentsCount(Employee $employee, CarbonInterface $referenceDate): int
     {
-        $dependents = $employee->relationLoaded('employeeDependents')
-            ? $employee->employeeDependents
-            : $employee->employeeDependents()
-                ->active()
-                ->claimedForTax()
-                ->get();
+        $dependents = $employee->relationLoaded('dependents')
+            ? $employee->dependents
+            : ($employee->relationLoaded('employeeDependents')
+                ? $employee->employeeDependents
+                : $employee->dependents()
+                    ->active()
+                    ->claimedForTax()
+                    ->get());
 
         $qualifiedSpouseCount = $dependents
             ->filter(fn ($dependent): bool => $dependent->relationship === 'spouse')

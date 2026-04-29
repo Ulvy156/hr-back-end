@@ -32,7 +32,9 @@ enum PermissionName: string
     case LeaveRequestViewAny = 'leave.request.view.any';
     case LeaveRequestViewAssigned = 'leave.request.view.assigned';
     case LeaveRequestViewSelf = 'leave.request.view.self';
+    case LeaveTypeManage = 'leave.type.manage';
     case LeaveTypeView = 'leave.type.view';
+    case HolidayManage = 'holiday.manage';
     case LocationView = 'location.view';
     case PermissionManage = 'permission.manage';
     case PermissionView = 'permission.view';
@@ -47,6 +49,12 @@ enum PermissionName: string
     case PayrollPayslipViewOwn = 'payroll.payslip.view-own';
     case PayrollSalaryManage = 'payroll.salary.manage';
     case PayrollSalaryView = 'payroll.salary.view';
+    case OvertimeApproveManager = 'overtime.approve.manager';
+    case OvertimeRequestCancel = 'overtime.request.cancel';
+    case OvertimeRequestCreate = 'overtime.request.create';
+    case OvertimeRequestViewAny = 'overtime.request.view.any';
+    case OvertimeRequestViewAssigned = 'overtime.request.view.assigned';
+    case OvertimeRequestViewSelf = 'overtime.request.view.self';
     case PositionView = 'position.view';
     case RoleAssign = 'role.assign';
     case RoleManage = 'role.manage';
@@ -102,7 +110,9 @@ enum PermissionName: string
             self::LeaveRequestViewAny->value => 'Allow viewing all leave requests across the organization.',
             self::LeaveRequestViewAssigned->value => 'Allow viewing leave requests assigned to the current approver for action or review.',
             self::LeaveRequestViewSelf->value => 'Allow viewing the authenticated user\'s own leave requests.',
+            self::LeaveTypeManage->value => 'Allow managing leave types and leave policy reference data.',
             self::LeaveTypeView->value => 'Allow viewing leave types, public holidays, and leave policy reference data.',
+            self::HolidayManage->value => 'Allow managing public holiday reference data.',
             self::LocationView->value => 'Allow viewing employee location reference data such as provinces, districts, communes, and villages.',
             self::PermissionManage->value => 'Allow managing the permission catalog or permission records in access-control administration.',
             self::PermissionView->value => 'Allow viewing the permission catalog for assignment and UI authorization.',
@@ -117,6 +127,12 @@ enum PermissionName: string
             self::PayrollPayslipViewOwn->value => 'Allow viewing the authenticated employee\'s own payslips.',
             self::PayrollSalaryManage->value => 'Allow creating and updating payroll salary setup records.',
             self::PayrollSalaryView->value => 'Allow viewing payroll salary setup records.',
+            self::OvertimeApproveManager->value => 'Allow a direct manager to perform the final overtime approval step.',
+            self::OvertimeRequestCancel->value => 'Allow cancelling the authenticated user\'s own overtime requests when cancellation is still permitted.',
+            self::OvertimeRequestCreate->value => 'Allow creating overtime requests for the authenticated user.',
+            self::OvertimeRequestViewAny->value => 'Allow viewing all overtime requests across the organization.',
+            self::OvertimeRequestViewAssigned->value => 'Allow viewing overtime requests assigned to the current manager for action or review.',
+            self::OvertimeRequestViewSelf->value => 'Allow viewing the authenticated user\'s own overtime requests.',
             self::PositionView->value => 'Allow viewing employee position reference data.',
             self::RoleAssign->value => 'Allow assigning managed role groups through access-control workflows.',
             self::RoleManage->value => 'Allow managing role definitions used by the HR system.',

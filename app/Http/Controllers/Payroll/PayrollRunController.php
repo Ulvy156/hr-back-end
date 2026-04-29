@@ -33,14 +33,20 @@ class PayrollRunController extends Controller
     public function index(IndexPayrollRunRequest $request): AnonymousResourceCollection
     {
         return PayrollRunResource::collection(
-            $this->payrollRunQueryService->paginate($request->validated())
+            $this->payrollRunQueryService->paginate(
+                $request->validated(),
+                $request->user('api') ?? $request->user(),
+            )
         );
     }
 
-    public function show(PayrollRun $payrollRun): PayrollRunResource
+    public function show(Request $request, PayrollRun $payrollRun): PayrollRunResource
     {
         return PayrollRunResource::make(
-            $this->payrollRunQueryService->find($payrollRun)
+            $this->payrollRunQueryService->find(
+                $payrollRun,
+                $request->user('api') ?? $request->user(),
+            )
         );
     }
 
@@ -61,7 +67,7 @@ class PayrollRunController extends Controller
     public function store(StorePayrollRunRequest $request): JsonResponse
     {
         $preparedGeneration = $this->payrollRunGenerationService->prepareGeneration(
-            $request->validated('month')
+            $request->validated('month'),
         );
 
         if (($preparedGeneration['blocking_message'] ?? null) !== null) {
@@ -120,7 +126,10 @@ class PayrollRunController extends Controller
 
     public function regenerate(RegeneratePayrollRunRequest $request, PayrollRun $payrollRun): JsonResponse
     {
-        $preparedGeneration = $this->payrollRunLifecycleService->prepareRegeneration($payrollRun);
+        $preparedGeneration = $this->payrollRunLifecycleService->prepareRegeneration(
+            $payrollRun,
+            $request->user('api') ?? $request->user(),
+        );
 
         if (($preparedGeneration['blocking_message'] ?? null) !== null) {
             return response()->json([

@@ -5,6 +5,7 @@ namespace App\Services\Payroll;
 use App\Models\Employee;
 use App\Models\PayrollRun;
 use App\Models\User;
+use App\PermissionName;
 use App\Services\AuditLogService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -12,10 +13,14 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
+use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 
 class PayrollRunGenerationService
 {
     private const INVALID_GENERATION_MESSAGE = 'Cannot generate payroll. No eligible employees or working days found for the selected month.';
+
+    private const DUPLICATE_MONTH_MESSAGE = 'A payroll run already exists for the selected month.';
 
     public function __construct(
         private AuditLogService $auditLogService,
@@ -37,8 +42,7 @@ class PayrollRunGenerationService
         [$monthStart, $monthEnd] = $this->normalizePayrollMonth($payrollMonth);
 
         if (
-            PayrollRun::query()
-                ->whereDate('payroll_month', $monthStart->toDateString())
+            $this->blockingPayrollRunQuery($monthStart)
                 ->when(
                     $ignorePayrollRunId !== null,
                     fn (Builder $query): Builder => $query->whereKeyNot($ignorePayrollRunId)
@@ -46,7 +50,7 @@ class PayrollRunGenerationService
                 ->exists()
         ) {
             throw ValidationException::withMessages([
-                'month' => ['A payroll run already exists for the selected month.'],
+                'month' => [self::DUPLICATE_MONTH_MESSAGE],
             ]);
         }
 
@@ -113,6 +117,8 @@ class PayrollRunGenerationService
      */
     public function generatePrepared(array $preparedGeneration, ?User $actor = null): PayrollRun
     {
+        $actor = $this->ensureGenerator($actor);
+
         if ($preparedGeneration['errors'] !== []) {
             throw ValidationException::withMessages([
                 'month' => ['Payroll generation contains blocking validation errors.'],
@@ -130,7 +136,7 @@ class PayrollRunGenerationService
             return DB::transaction(function () use ($actor, $compiledGeneration, $monthStart): PayrollRun {
                 $payrollRun = PayrollRun::query()->create([
                     'payroll_month' => $monthStart->toDateString(),
-                    'status' => 'draft',
+                    'status' => PayrollRun::STATUS_DRAFT,
                     ...$compiledGeneration['totals'],
                 ]);
 
@@ -155,9 +161,9 @@ class PayrollRunGenerationService
                 return $payrollRun->fresh() ?? $payrollRun;
             });
         } catch (QueryException $exception) {
-            if (PayrollRun::query()->whereDate('payroll_month', $monthStart->toDateString())->exists()) {
+            if ($this->blockingPayrollRunQuery($monthStart)->exists()) {
                 throw ValidationException::withMessages([
-                    'month' => ['A payroll run already exists for the selected month.'],
+                    'month' => [self::DUPLICATE_MONTH_MESSAGE],
                 ]);
             }
 
@@ -202,6 +208,13 @@ class PayrollRunGenerationService
         return [$monthStart, $monthStart->copy()->endOfMonth()];
     }
 
+    private function blockingPayrollRunQuery(Carbon $monthStart): Builder
+    {
+        return PayrollRun::query()
+            ->whereDate('payroll_month', $monthStart->toDateString())
+            ->where('status', '!=', PayrollRun::STATUS_CANCELLED);
+    }
+
     /**
      * @return Collection<int, Employee>
      */
@@ -209,7 +222,7 @@ class PayrollRunGenerationService
     {
         return Employee::query()
             ->with([
-                'employeeDependents' => fn ($query) => $query
+                'dependents' => fn ($query) => $query
                     ->select([
                         'id',
                         'employee_id',
@@ -435,5 +448,25 @@ class PayrollRunGenerationService
         return ValidationException::withMessages([
             'month' => [self::INVALID_GENERATION_MESSAGE],
         ]);
+    }
+
+    private function ensureGenerator(?User $authenticatedUser): User
+    {
+        $authenticatedUser = $this->ensureAuthenticated($authenticatedUser);
+
+        if (! $authenticatedUser->can(PermissionName::PayrollRunGenerate->value)) {
+            throw new HttpException(403, 'Forbidden.');
+        }
+
+        return $authenticatedUser;
+    }
+
+    private function ensureAuthenticated(?User $authenticatedUser): User
+    {
+        if ($authenticatedUser === null) {
+            throw new UnauthorizedHttpException('Bearer', 'Unauthenticated.');
+        }
+
+        return $authenticatedUser;
     }
 }

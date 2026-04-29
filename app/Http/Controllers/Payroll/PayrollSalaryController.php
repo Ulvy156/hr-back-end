@@ -25,6 +25,7 @@ class PayrollSalaryController extends Controller
             $this->employeeSalaryService->paginate(
                 $validated,
                 (int) ($validated['per_page'] ?? 15),
+                $request->user('api') ?? $request->user(),
             )
         );
     }

@@ -6,6 +6,7 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\Position;
+use App\Models\PublicHoliday;
 use App\Models\Role;
 use App\Models\User;
 use Carbon\Carbon;
@@ -62,6 +63,69 @@ it('allows an employee to check in and check out from self-service endpoints', f
         ->assertJsonPath('data.nextAction', 'none')
         ->assertJsonPath('data.workedMinutes', 480)
         ->assertJsonPath('data.overtimeMinutes', 0);
+});
+
+it('counts all worked minutes as overtime on weekends', function () {
+    $employeeUser = createAttendanceUser('employee');
+
+    Passport::actingAs($employeeUser);
+
+    Carbon::setTestNow(Carbon::parse('2026-04-18 08:00:00'));
+
+    $this->postJson('/api/attendance/check-in')
+        ->assertCreated()
+        ->assertJsonPath('data.status', 'checked_in');
+
+    Carbon::setTestNow(Carbon::parse('2026-04-18 17:00:00'));
+
+    $this->postJson('/api/attendance/check-out')
+        ->assertOk()
+        ->assertJsonPath('data.status', 'present')
+        ->assertJsonPath('data.workedMinutes', 480)
+        ->assertJsonPath('data.overtimeMinutes', 480)
+        ->assertJsonPath('data.earlyLeaveMinutes', 0);
+
+    $attendance = Attendance::query()
+        ->where('employee_id', $employeeUser->employee->id)
+        ->whereDate('attendance_date', '2026-04-18')
+        ->firstOrFail();
+
+    expect($attendance->worked_minutes)->toBe(480)
+        ->and($attendance->overtime_minutes)->toBe(480);
+});
+
+it('counts all worked minutes as overtime on public holidays', function () {
+    PublicHoliday::factory()->create([
+        'holiday_date' => '2026-04-15',
+        'year' => 2026,
+        'country_code' => 'KH',
+    ]);
+
+    $hrUser = createAttendanceUser('hr');
+    $employeeUser = createAttendanceUser('employee');
+
+    Passport::actingAs($hrUser);
+
+    $this->postJson('/api/attendance/manual', [
+        'employee_id' => $employeeUser->employee->id,
+        'attendance_date' => '2026-04-15',
+        'check_in_time' => '2026-04-15T08:00:00+07:00',
+        'check_out_time' => '2026-04-15T17:00:00+07:00',
+        'notes' => 'Worked on a public holiday.',
+    ])
+        ->assertCreated()
+        ->assertJsonPath('data.status', 'present')
+        ->assertJsonPath('data.workedMinutes', 480)
+        ->assertJsonPath('data.overtimeMinutes', 480)
+        ->assertJsonPath('data.earlyLeaveMinutes', 0);
+
+    $attendance = Attendance::query()
+        ->where('employee_id', $employeeUser->employee->id)
+        ->whereDate('attendance_date', '2026-04-15')
+        ->firstOrFail();
+
+    expect($attendance->worked_minutes)->toBe(480)
+        ->and($attendance->overtime_minutes)->toBe(480);
 });
 
 it('stores whole minutes when check-out timestamps include seconds', function () {

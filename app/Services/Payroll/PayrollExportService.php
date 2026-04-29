@@ -5,10 +5,12 @@ namespace App\Services\Payroll;
 use App\Models\PayrollItem;
 use App\Models\PayrollRun;
 use App\Models\User;
+use App\PermissionName;
 use App\Services\AuditLogService;
 use App\Services\Payroll\Exports\PayrollRunExcelExporter;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 
 class PayrollExportService
@@ -25,6 +27,7 @@ class PayrollExportService
     public function exportExcel(?User $authenticatedUser, PayrollRun $payrollRun): array
     {
         $authenticatedUser = $this->ensureAuthenticated($authenticatedUser);
+        $this->ensureExporter($authenticatedUser);
         $report = $this->buildReport($payrollRun);
         $filename = $this->buildFilename($payrollRun);
         $path = $this->temporaryPath($filename);
@@ -81,6 +84,13 @@ class PayrollExportService
         }
 
         return $authenticatedUser;
+    }
+
+    private function ensureExporter(User $authenticatedUser): void
+    {
+        if (! $authenticatedUser->can(PermissionName::PayrollExport->value)) {
+            throw new HttpException(403, 'Forbidden.');
+        }
     }
 
     private function buildFilename(PayrollRun $payrollRun): string

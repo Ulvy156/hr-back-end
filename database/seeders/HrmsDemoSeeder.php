@@ -8,7 +8,6 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeePosition;
 use App\Models\LeaveRequest;
-use App\Models\Permission;
 use App\Models\Position;
 use App\Models\Role;
 use App\Models\User;
@@ -149,45 +148,14 @@ class HrmsDemoSeeder extends Seeder
      */
     private function seedRolesAndPermissions(): array
     {
-        foreach ($this->canonicalPermissions() as $name => $description) {
-            Permission::query()->updateOrCreate(
-                ['name' => $name],
-                ['description' => $description, 'guard_name' => 'api']
-            );
-        }
+        $this->call(RoleAndPermissionSeeder::class);
 
-        $roles = [
-            'admin' => Role::query()->updateOrCreate(
-                ['name' => 'admin'],
-                ['description' => 'System administrator', 'guard_name' => 'api']
-            ),
-            'hr' => Role::query()->updateOrCreate(
-                ['name' => 'hr'],
-                ['description' => 'Human resources staff', 'guard_name' => 'api']
-            ),
-            'hr_head' => Role::query()->updateOrCreate(
-                ['name' => 'hr_head'],
-                ['description' => 'Human resources head', 'guard_name' => 'api']
-            ),
-            'hr_manager' => Role::query()->updateOrCreate(
-                ['name' => 'hr_manager'],
-                ['description' => 'Human resources manager', 'guard_name' => 'api']
-            ),
-            'manager' => Role::query()->updateOrCreate(
-                ['name' => 'manager'],
-                ['description' => 'Department manager', 'guard_name' => 'api']
-            ),
-            'employee' => Role::query()->updateOrCreate(
-                ['name' => 'employee'],
-                ['description' => 'Regular employee', 'guard_name' => 'api']
-            ),
-        ];
-
-        foreach ($this->rolePermissionMap() as $roleName => $permissions) {
-            $roles[$roleName]->syncPermissions($permissions);
-        }
-
-        return $roles;
+        return Role::query()
+            ->whereIn('name', Role::managedRoleNames())
+            ->where('guard_name', 'api')
+            ->get()
+            ->keyBy('name')
+            ->all();
     }
 
     /**
@@ -629,84 +597,6 @@ class HrmsDemoSeeder extends Seeder
         );
 
         return $employeeModel->fresh(['user.roles.permissions']) ?? $employeeModel;
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function canonicalPermissions(): array
-    {
-        return [
-            PermissionName::AuditLogExport->value => 'Export audit logs',
-            PermissionName::AuditLogView->value => 'View audit logs',
-            PermissionName::AttendanceAuditView->value => 'View attendance audit logs',
-            PermissionName::AttendanceCorrectionRequest->value => 'Submit attendance correction requests',
-            PermissionName::AttendanceExport->value => 'Export attendance reports for the allowed scope',
-            PermissionName::AttendanceExportAny->value => 'Export attendance reports for any employee',
-            PermissionName::AttendanceManage->value => 'Manage attendance records and correction workflows',
-            PermissionName::AttendanceMissingRequest->value => 'Submit missing attendance requests',
-            PermissionName::AttendanceRecord->value => 'Record personal attendance events',
-            PermissionName::AttendanceSummaryAny->value => 'View organization attendance summaries',
-            PermissionName::AttendanceSummarySelf->value => 'View personal attendance summaries',
-            PermissionName::AttendanceView->value => 'View attendance records',
-            PermissionName::AttendanceViewAny->value => 'View attendance records for any employee',
-            PermissionName::AttendanceViewSelf->value => 'View personal attendance records',
-            PermissionName::EmployeeExport->value => 'Export employee records',
-            PermissionName::EmployeeManage->value => 'Manage employee records and related details',
-            PermissionName::EmployeeUserLinkView->value => 'View users available for employee linking',
-            PermissionName::EmployeeView->value => 'View employee records',
-            PermissionName::EmployeeViewAny->value => 'View any employee record',
-            PermissionName::EmployeeViewSelf->value => 'View the authenticated employee record',
-            PermissionName::LeaveApproveHr->value => 'Approve leave at the HR authority stage',
-            PermissionName::LeaveApproveManager->value => 'Approve leave at the manager authority stage',
-            PermissionName::LeaveBalanceViewSelf->value => 'View personal leave balances',
-            PermissionName::LeaveRequestCancelSelf->value => 'Cancel personal leave requests',
-            PermissionName::LeaveRequestCreate->value => 'Create personal leave requests',
-            PermissionName::LeaveRequestViewAny->value => 'View all leave requests',
-            PermissionName::LeaveRequestViewAssigned->value => 'View leave requests assigned for review',
-            PermissionName::LeaveRequestViewSelf->value => 'View personal leave requests',
-            PermissionName::LeaveTypeView->value => 'View leave types and policies',
-            PermissionName::LocationView->value => 'View location lookups',
-            PermissionName::PermissionManage->value => 'Manage permissions',
-            PermissionName::PermissionView->value => 'View permissions',
-            PermissionName::PayrollExport->value => 'Export payroll runs',
-            PermissionName::PayrollPayslipViewAny->value => 'View payroll payslips for any employee',
-            PermissionName::PayrollPayslipViewOwn->value => 'View personal payroll payslips',
-            PermissionName::PayrollRunApprove->value => 'Approve payroll runs',
-            PermissionName::PayrollRunCancel->value => 'Cancel payroll runs',
-            PermissionName::PayrollRunGenerate->value => 'Generate payroll runs',
-            PermissionName::PayrollRunRegenerate->value => 'Allow regenerating existing payroll runs.',
-            PermissionName::PayrollRunMarkPaid->value => 'Mark payroll runs as paid',
-            PermissionName::PayrollRunView->value => 'View payroll runs',
-            PermissionName::PayrollSalaryManage->value => 'Manage payroll salary setup records',
-            PermissionName::PayrollSalaryView->value => 'View payroll salary setup records',
-            PermissionName::PositionView->value => 'View positions',
-            PermissionName::RoleAssign->value => 'Assign role and permission groups',
-            PermissionName::RoleManage->value => 'Manage roles',
-            PermissionName::RoleView->value => 'View available role groups',
-            PermissionName::UserPermissionAssign->value => 'Assign direct permissions to users',
-            PermissionName::UserManage->value => 'Manage system users',
-            PermissionName::UserRoleAssign->value => 'Assign roles to users',
-            PermissionName::UserUpdate->value => 'Update users',
-            PermissionName::UserView->value => 'View users',
-        ];
-    }
-
-    /**
-     * @return array<string, array<int, string>>
-     */
-    private function rolePermissionMap(): array
-    {
-        return collect([
-            'admin',
-            'employee',
-            'hr',
-            'hr_head',
-            'hr_manager',
-            'manager',
-        ])->mapWithKeys(fn (string $roleName): array => [
-            $roleName => Role::defaultPermissionNamesFor($roleName),
-        ])->all();
     }
 
     /**

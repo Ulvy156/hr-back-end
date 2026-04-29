@@ -1,0 +1,309 @@
+{
+    "info": {
+        "_postman_id": "ef2d9f8d-7fd7-4d54-8ad6-hr-back-end-overtime-request",
+        "name": "HR Back End - Overtime Request",
+        "description": "Postman collection for manual overtime request submission, direct-manager approval or rejection, cancellation, and list/detail lookups.\n\nWorkflow notes:\n- employees submit overtime requests for themselves only\n- direct manager approval is limited to direct reports\n- manager approval is final\n- approved overtime requests are included in payroll\n- pending, rejected, and cancelled overtime requests are excluded from payroll\n- minutes and overtime_type are calculated by the backend from date and time inputs",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:8000/api"
+        },
+        {
+            "key": "email",
+            "value": "emma.employee@example.com"
+        },
+        {
+            "key": "manager_email",
+            "value": "mark.ops@example.com"
+        },
+        {
+            "key": "password",
+            "value": "password"
+        },
+        {
+            "key": "access_token",
+            "value": ""
+        },
+        {
+            "key": "overtime_request_id",
+            "value": "1"
+        }
+    ],
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "{{access_token}}",
+                "type": "string"
+            }
+        ]
+    },
+    "item": [
+        {
+            "name": "Auth",
+            "item": [
+                {
+                    "name": "Login As Employee",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const data = pm.response.json();",
+                                    "if (data.access_token) {",
+                                    "    pm.collectionVariables.set('access_token', data.access_token);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {
+                            "type": "noauth"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/auth/login",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "login"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Login As Manager",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const data = pm.response.json();",
+                                    "if (data.access_token) {",
+                                    "    pm.collectionVariables.set('access_token', data.access_token);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {
+                            "type": "noauth"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"{{manager_email}}\",\n  \"password\": \"{{password}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/auth/login",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "login"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Overtime Requests",
+            "item": [
+                {
+                    "name": "Create Overtime Request",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"overtime_date\": \"2026-04-18\",\n  \"start_time\": \"18:00\",\n  \"end_time\": \"20:00\",\n  \"reason\": \"Month-end support.\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/overtime-requests",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "overtime-requests"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List Overtime Requests",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/overtime-requests?status=pending&per_page=20",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "overtime-requests"
+                            ],
+                            "query": [
+                                {
+                                    "key": "status",
+                                    "value": "pending"
+                                },
+                                {
+                                    "key": "per_page",
+                                    "value": "20"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Overtime Request Detail",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/overtime-requests/{{overtime_request_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "overtime-requests",
+                                "{{overtime_request_id}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Manager Approve Overtime Request",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/overtime-requests/{{overtime_request_id}}/manager-approve",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "overtime-requests",
+                                "{{overtime_request_id}}",
+                                "manager-approve"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Reject Overtime Request",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"rejection_reason\": \"Budget was not approved.\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/overtime-requests/{{overtime_request_id}}/reject",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "overtime-requests",
+                                "{{overtime_request_id}}",
+                                "reject"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Cancel Overtime Request",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/overtime-requests/{{overtime_request_id}}/cancel",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "overtime-requests",
+                                "{{overtime_request_id}}",
+                                "cancel"
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

@@ -5,12 +5,15 @@ namespace App\Services\Payroll;
 use App\Models\Employee;
 use App\Models\EmployeeSalary;
 use App\Models\User;
+use App\PermissionName;
 use App\Services\AuditLogService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
+use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 
 class EmployeeSalaryService
 {
@@ -27,8 +30,12 @@ class EmployeeSalaryService
      *     effective_on?: string|null
      * }  $filters
      */
-    public function paginate(array $filters = [], int $perPage = 15): LengthAwarePaginator
+    public function paginate(array $filters = [], int $perPage = 15, ?User $authenticatedUser = null): LengthAwarePaginator
     {
+        if ($authenticatedUser !== null) {
+            $this->ensureSalaryReader($authenticatedUser);
+        }
+
         return EmployeeSalary::query()
             ->with('employee')
             ->when(
@@ -63,6 +70,8 @@ class EmployeeSalaryService
      */
     public function create(array $data, ?User $actor = null): EmployeeSalary
     {
+        $actor = $this->ensureSalaryManager($actor);
+
         return DB::transaction(function () use ($actor, $data): EmployeeSalary {
             $employee = Employee::query()
                 ->lockForUpdate()
@@ -137,6 +146,8 @@ class EmployeeSalaryService
      */
     public function update(EmployeeSalary $employeeSalary, array $data, ?User $actor = null): EmployeeSalary
     {
+        $actor = $this->ensureSalaryManager($actor);
+
         return DB::transaction(function () use ($actor, $data, $employeeSalary): EmployeeSalary {
             /** @var EmployeeSalary $lockedEmployeeSalary */
             $lockedEmployeeSalary = EmployeeSalary::query()
@@ -272,5 +283,36 @@ class EmployeeSalaryService
         throw ValidationException::withMessages([
             'end_date' => ['The end date must be on or after the effective date.'],
         ]);
+    }
+
+    private function ensureSalaryReader(?User $authenticatedUser): User
+    {
+        $authenticatedUser = $this->ensureAuthenticated($authenticatedUser);
+
+        if (! $authenticatedUser->can(PermissionName::PayrollSalaryView->value)) {
+            throw new HttpException(403, 'Forbidden.');
+        }
+
+        return $authenticatedUser;
+    }
+
+    private function ensureSalaryManager(?User $authenticatedUser): User
+    {
+        $authenticatedUser = $this->ensureAuthenticated($authenticatedUser);
+
+        if (! $authenticatedUser->can(PermissionName::PayrollSalaryManage->value)) {
+            throw new HttpException(403, 'Forbidden.');
+        }
+
+        return $authenticatedUser;
+    }
+
+    private function ensureAuthenticated(?User $authenticatedUser): User
+    {
+        if ($authenticatedUser === null) {
+            throw new UnauthorizedHttpException('Bearer', 'Unauthenticated.');
+        }
+
+        return $authenticatedUser;
     }
 }

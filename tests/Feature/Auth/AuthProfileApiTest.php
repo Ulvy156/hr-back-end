@@ -193,6 +193,12 @@ it('returns the authenticated user profile with employee details and nested rela
     expect($meResponse->json('permissions'))
         ->toContain('auth.profile.direct')
         ->toContain('auth.profile.role')
+        ->toContain('leave.type.view');
+
+    expect($meResponse->json('permission_names'))
+        ->toBe($meResponse->json('permissions'))
+        ->toContain('auth.profile.direct')
+        ->toContain('auth.profile.role')
         ->toContain('leave.type.view')
         ->and(collect($meResponse->json('permission_catalog.modules')))
         ->pluck('key')

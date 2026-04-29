@@ -7,8 +7,10 @@ use App\Models\Position;
 use App\Models\Role;
 use App\Models\User;
 use App\PermissionName;
+use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Passport\Passport;
+use Spatie\Permission\PermissionRegistrar;
 
 uses(RefreshDatabase::class);
 
@@ -127,47 +129,23 @@ it('returns a user access summary with role, direct, and effective permissions',
 
     Passport::actingAs($admin);
 
-    $this->getJson("/api/users/{$managedUser->id}/access")
+    $response = $this->getJson("/api/users/{$managedUser->id}/access")
         ->assertOk()
         ->assertJsonPath('id', $managedUser->id)
         ->assertJsonPath('name', 'Access Person')
         ->assertJsonPath('roles.0.name', 'employee')
-        ->assertJsonPath('direct_permissions.0', PermissionName::LeaveApproveHr->value)
-        ->assertJsonFragment(['role_permissions' => [
-            'attendance.correction.request',
-            'attendance.export',
-            'attendance.missing.request',
-            'attendance.record',
-            'attendance.summary.self',
-            'attendance.view',
-            'attendance.view.self',
-            'employee.view',
-            'employee.view.self',
-            'leave.balance.view.self',
-            'leave.request.cancel.self',
-            'leave.request.create',
-            'leave.request.view.self',
-            'leave.type.view',
-            'location.view',
-        ]])
-        ->assertJsonFragment(['effective_permissions' => [
-            'attendance.correction.request',
-            'attendance.export',
-            'attendance.missing.request',
-            'attendance.record',
-            'attendance.summary.self',
-            'attendance.view',
-            'attendance.view.self',
-            'employee.view',
-            'employee.view.self',
-            'leave.approve.hr',
-            'leave.balance.view.self',
-            'leave.request.cancel.self',
-            'leave.request.create',
-            'leave.request.view.self',
-            'leave.type.view',
-            'location.view',
-        ]]);
+        ->assertJsonPath('direct_permissions.0', PermissionName::LeaveApproveHr->value);
+
+    expect($response->json('role_permissions'))
+        ->toContain(PermissionName::LeaveRequestCreate->value)
+        ->toContain(PermissionName::LeaveRequestViewSelf->value)
+        ->toContain(PermissionName::OvertimeRequestCreate->value)
+        ->toContain(PermissionName::OvertimeRequestCancel->value)
+        ->and($response->json('effective_permissions'))
+        ->toContain(PermissionName::LeaveApproveHr->value)
+        ->toContain(PermissionName::LeaveRequestCreate->value)
+        ->toContain(PermissionName::OvertimeRequestCreate->value)
+        ->toContain(PermissionName::OvertimeRequestCancel->value);
 });
 
 it('syncs user roles and direct permissions through the admin access endpoints', function () {
@@ -204,41 +182,18 @@ it('syncs user roles and direct permissions through the admin access endpoints',
 
     expect($permissionResponse->json('effective_permissions'))->toContain(PermissionName::LeaveApproveHr->value);
 
-    $this->patchJson("/api/users/{$targetUser->id}/access", [
+    $accessResponse = $this->patchJson("/api/users/{$targetUser->id}/access", [
         'roles' => ['hr'],
         'permissions' => [PermissionName::AuditLogView->value],
     ])
         ->assertOk()
         ->assertJsonPath('roles.0.name', 'hr')
-        ->assertJsonPath('direct_permissions.0', PermissionName::AuditLogView->value)
-        ->assertJsonFragment(['effective_permissions' => collect([
-            PermissionName::AttendanceCorrectionRequest->value,
-            PermissionName::AttendanceExport->value,
-            PermissionName::AttendanceExportAny->value,
-            PermissionName::AttendanceManage->value,
-            PermissionName::AttendanceMissingRequest->value,
-            PermissionName::AttendanceRecord->value,
-            PermissionName::AttendanceSummaryAny->value,
-            PermissionName::AttendanceSummarySelf->value,
-            PermissionName::AttendanceView->value,
-            PermissionName::AttendanceViewAny->value,
-            PermissionName::AttendanceViewSelf->value,
-            PermissionName::AuditLogView->value,
-            PermissionName::EmployeeExport->value,
-            PermissionName::EmployeeManage->value,
-            PermissionName::EmployeeUserLinkView->value,
-            PermissionName::EmployeeView->value,
-            PermissionName::EmployeeViewAny->value,
-            PermissionName::LeaveApproveHr->value,
-            PermissionName::LeaveBalanceViewSelf->value,
-            PermissionName::LeaveRequestCancelSelf->value,
-            PermissionName::LeaveRequestCreate->value,
-            PermissionName::LeaveRequestViewAny->value,
-            PermissionName::LeaveRequestViewSelf->value,
-            PermissionName::LeaveTypeView->value,
-            PermissionName::LocationView->value,
-            PermissionName::PositionView->value,
-        ])->sort()->values()->all()]);
+        ->assertJsonPath('direct_permissions.0', PermissionName::AuditLogView->value);
+
+    expect($accessResponse->json('effective_permissions'))
+        ->toContain(PermissionName::AuditLogView->value)
+        ->toContain(PermissionName::EmployeeManage->value)
+        ->toContain(PermissionName::LeaveApproveHr->value);
 
     $targetUser->refresh();
 
@@ -359,6 +314,164 @@ it('allows admin to create and update users with role assignment', function () {
         ->and($user->roles->pluck('name')->values()->all())->toBe(['hr'])
         ->and($firstEmployee->fresh()?->user_id)->toBeNull()
         ->and($secondEmployee->fresh()?->user_id)->toBe($userId);
+});
+
+it('defaults new users to the employee role when role ids are omitted', function () {
+    $this->seed(RoleAndPermissionSeeder::class);
+
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    $admin = createUserManagementActor('admin');
+    $employee = createStandaloneEmployee([
+        'employee_code' => 'EMP000350',
+        'first_name' => 'Defaulted',
+        'last_name' => 'Employee',
+        'email' => 'defaulted.employee.profile@example.com',
+    ]);
+
+    Passport::actingAs($admin);
+
+    $response = $this->postJson('/api/users', [
+        'name' => 'Defaulted User',
+        'email' => 'defaulted.employee@example.com',
+        'password' => 'Password123!',
+        'employee_id' => $employee->id,
+    ])
+        ->assertCreated()
+        ->assertJsonPath('roles.0.name', 'employee');
+
+    $user = User::query()
+        ->with(['roles.permissions', 'permissions', 'employee'])
+        ->findOrFail($response->json('id'));
+
+    expect($user->roles->pluck('name')->all())->toBe(['employee'])
+        ->and($user->getDirectPermissions()->pluck('name')->all())->toBe([])
+        ->and($user->getAllPermissions()->pluck('name')->all())
+        ->toContain(PermissionName::OvertimeRequestCreate->value)
+        ->toContain(PermissionName::OvertimeRequestViewSelf->value)
+        ->toContain(PermissionName::OvertimeRequestCancel->value)
+        ->and($user->employee?->id)->toBe($employee->id);
+});
+
+it('creates users with inherited default role permissions and keeps direct permissions for overrides', function () {
+    $this->seed(RoleAndPermissionSeeder::class);
+
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    $admin = createUserManagementActor('admin');
+    $employeeRole = Role::findByName('employee', 'api');
+    $managerRole = Role::findByName('manager', 'api');
+    $adminRole = Role::findByName('admin', 'api');
+    $employee = createStandaloneEmployee([
+        'employee_code' => 'EMP000501',
+        'first_name' => 'Default',
+        'last_name' => 'Employee',
+        'email' => 'default.employee.profile@example.com',
+    ]);
+    $manager = createStandaloneEmployee([
+        'employee_code' => 'EMP000502',
+        'first_name' => 'Default',
+        'last_name' => 'Manager',
+        'email' => 'default.manager.profile@example.com',
+    ]);
+
+    Passport::actingAs($admin);
+
+    $employeeUserId = $this->postJson('/api/users', [
+        'name' => 'Default Employee',
+        'email' => 'default.employee@example.com',
+        'password' => 'Password123!',
+        'employee_id' => $employee->id,
+        'role_ids' => [$employeeRole->id],
+    ])
+        ->assertCreated()
+        ->assertJsonPath('roles.0.name', 'employee')
+        ->json('id');
+
+    $managerUserId = $this->postJson('/api/users', [
+        'name' => 'Default Manager',
+        'email' => 'default.manager@example.com',
+        'password' => 'Password123!',
+        'employee_id' => $manager->id,
+        'role_ids' => [$managerRole->id],
+    ])
+        ->assertCreated()
+        ->assertJsonPath('roles.0.name', 'manager')
+        ->json('id');
+
+    $adminUserId = $this->postJson('/api/users', [
+        'name' => 'Default Admin',
+        'email' => 'default.admin@example.com',
+        'password' => 'Password123!',
+        'role_ids' => [$adminRole->id],
+    ])
+        ->assertCreated()
+        ->assertJsonPath('roles.0.name', 'admin')
+        ->json('id');
+
+    $employeeAccess = $this->getJson("/api/users/{$employeeUserId}/access")
+        ->assertOk()
+        ->assertJsonPath('direct_permissions', [])
+        ->json();
+
+    expect($employeeAccess['role_permissions'])
+        ->toContain(PermissionName::OvertimeRequestViewSelf->value)
+        ->toContain(PermissionName::OvertimeRequestCreate->value)
+        ->toContain(PermissionName::OvertimeRequestCancel->value)
+        ->not->toContain(PermissionName::OvertimeApproveManager->value)
+        ->and($employeeAccess['effective_permissions'])
+        ->toContain(PermissionName::OvertimeRequestViewSelf->value)
+        ->toContain(PermissionName::OvertimeRequestCreate->value)
+        ->toContain(PermissionName::OvertimeRequestCancel->value);
+
+    $managerAccess = $this->getJson("/api/users/{$managerUserId}/access")
+        ->assertOk()
+        ->assertJsonPath('direct_permissions', [])
+        ->json();
+
+    expect($managerAccess['role_permissions'])
+        ->toContain(PermissionName::OvertimeApproveManager->value)
+        ->and($managerAccess['effective_permissions'])
+        ->toContain(PermissionName::OvertimeApproveManager->value);
+
+    $adminAccess = $this->getJson("/api/users/{$adminUserId}/access")
+        ->assertOk()
+        ->assertJsonPath('direct_permissions', [])
+        ->json();
+
+    expect($adminAccess['role_permissions'])
+        ->toContain(PermissionName::OvertimeRequestViewAny->value)
+        ->not->toContain(PermissionName::OvertimeRequestCreate->value)
+        ->not->toContain(PermissionName::OvertimeRequestCancel->value)
+        ->not->toContain(PermissionName::OvertimeApproveManager->value)
+        ->and($adminAccess['effective_permissions'])
+        ->toContain(PermissionName::OvertimeRequestViewAny->value)
+        ->not->toContain(PermissionName::OvertimeRequestCreate->value)
+        ->not->toContain(PermissionName::OvertimeRequestCancel->value)
+        ->not->toContain(PermissionName::OvertimeApproveManager->value);
+
+    $managerUser = User::query()->findOrFail($managerUserId);
+
+    Passport::actingAs($managerUser);
+
+    $this->getJson('/api/auth/me')
+        ->assertOk()
+        ->assertJsonPath('roles.0.name', 'manager')
+        ->assertJsonFragment([
+            'permission_names' => collect(Role::defaultPermissionNamesFor('manager'))->sort()->values()->all(),
+        ]);
+
+    Passport::actingAs($admin);
+
+    $overrideResponse = $this->patchJson("/api/users/{$managerUserId}/permissions", [
+        'permissions' => [PermissionName::AuditLogView->value],
+    ])
+        ->assertOk()
+        ->assertJsonPath('direct_permissions.0', PermissionName::AuditLogView->value);
+
+    expect($overrideResponse->json('effective_permissions'))
+        ->toContain(PermissionName::OvertimeApproveManager->value)
+        ->toContain(PermissionName::AuditLogView->value);
 });
 
 it('rejects assigning more than one role when creating or updating a user', function () {

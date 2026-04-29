@@ -5,6 +5,7 @@ namespace App\Services\Payroll;
 use App\Models\Employee;
 use App\Models\PayrollItem;
 use App\Models\User;
+use App\PermissionName;
 use App\Services\AuditLogService;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -23,6 +24,7 @@ class OwnPayslipService
     public function paginate(?User $authenticatedUser, array $filters = []): LengthAwarePaginator
     {
         $authenticatedUser = $this->ensureAuthenticated($authenticatedUser);
+        $this->ensureOwnPayslipReader($authenticatedUser);
         $employee = $this->ensureEmployeeProfile($authenticatedUser);
         $perPage = min(max((int) ($filters['per_page'] ?? 15), 1), 100);
 
@@ -55,6 +57,7 @@ class OwnPayslipService
     public function find(?User $authenticatedUser, PayrollItem $payrollItem): PayrollItem
     {
         $authenticatedUser = $this->ensureAuthenticated($authenticatedUser);
+        $this->ensureOwnPayslipReader($authenticatedUser);
         $employee = $this->ensureEmployeeProfile($authenticatedUser);
         $payrollItem = $payrollItem->loadMissing('payrollRun');
 
@@ -98,5 +101,12 @@ class OwnPayslipService
         }
 
         return $employee;
+    }
+
+    private function ensureOwnPayslipReader(User $authenticatedUser): void
+    {
+        if (! $authenticatedUser->can(PermissionName::PayrollPayslipViewOwn->value)) {
+            throw new HttpException(403, 'Forbidden.');
+        }
     }
 }

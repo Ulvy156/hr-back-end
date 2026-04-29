@@ -33,11 +33,8 @@ class AuthProfileResource extends JsonResource
                     ->values()
                     ->all(),
             ),
-            'permissions' => $this->resource->getAllPermissions()
-                ->pluck('name')
-                ->sort()
-                ->values()
-                ->all(),
+            'permissions' => $this->permissionNames(),
+            'permission_names' => $this->permissionNames(),
             'employee' => $this->when(
                 $this->resource->relationLoaded('employee') && $this->resource->employee !== null,
                 fn (): array => EmployeeResource::make($this->resource->employee)->resolve($request),
@@ -45,5 +42,17 @@ class AuthProfileResource extends JsonResource
             'created_at' => $this->resource->created_at?->toIso8601String(),
             'updated_at' => $this->resource->updated_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function permissionNames(): array
+    {
+        return $this->resource->getAllPermissions()
+            ->pluck('name')
+            ->sort()
+            ->values()
+            ->all();
     }
 }

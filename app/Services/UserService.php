@@ -110,6 +110,7 @@ class UserService
     {
         return DB::transaction(function () use ($data): User {
             $employee = $this->employeeForLinking($data);
+            $normalizedData = $this->normalizeRoleIdsForNewUser($data);
 
             $user = User::query()->create([
                 'name' => $this->resolvedAccountName($data, $employee),
@@ -123,7 +124,7 @@ class UserService
                 $employee->save();
             }
 
-            $this->syncRoles($user, $data);
+            $this->syncRoles($user, $normalizedData);
 
             return $user->load(self::USER_RELATIONS);
         });
@@ -320,7 +321,66 @@ class UserService
             ]);
         }
 
+        $this->ensureManagedRoleIds($data['role_ids']);
+
         $user->syncRoles($data['role_ids']);
+    }
+
+    /**
+     * @param  array{name: string, email: string, password: string, employee_id?: int|null, role_ids?: array<int, int>}  $data
+     * @return array{name: string, email: string, password: string, employee_id?: int|null, role_ids: array<int, int>}
+     */
+    private function normalizeRoleIdsForNewUser(array $data): array
+    {
+        $roleIds = $data['role_ids'] ?? null;
+
+        if (is_array($roleIds) && $roleIds !== []) {
+            return $data;
+        }
+
+        $employeeRoleId = Role::query()
+            ->where('name', 'employee')
+            ->where('guard_name', 'api')
+            ->value('id');
+
+        if (! is_int($employeeRoleId)) {
+            throw ValidationException::withMessages([
+                'role_ids' => 'The default employee role is not available.',
+            ]);
+        }
+
+        $data['role_ids'] = [$employeeRoleId];
+
+        return $data;
+    }
+
+    /**
+     * @param  array<int, int>  $roleIds
+     */
+    private function ensureManagedRoleIds(array $roleIds): void
+    {
+        $normalizedRoleIds = collect($roleIds)
+            ->map(fn (int|string $roleId): int => (int) $roleId)
+            ->unique()
+            ->values();
+
+        if ($normalizedRoleIds->isEmpty()) {
+            return;
+        }
+
+        $managedRoleCount = Role::query()
+            ->whereIn('id', $normalizedRoleIds)
+            ->whereIn('name', Role::managedRoleNames())
+            ->where('guard_name', 'api')
+            ->count();
+
+        if ($managedRoleCount === $normalizedRoleIds->count()) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'role_ids' => 'Only managed roles may be assigned to users.',
+        ]);
     }
 
     /**

@@ -228,8 +228,8 @@ it('does not allow regenerate with generate permission alone', function () {
         ->assertForbidden();
 });
 
-it('forbids regular hr users from restricted payroll actions', function (string $endpoint) {
-    $actor = createPayrollRunActionActorWithRole('hr');
+it('forbids admin users from restricted payroll actions', function (string $endpoint) {
+    $actor = createPayrollRunActionActorWithRole('admin');
     $payrollRun = PayrollRun::query()->create([
         'payroll_month' => '2026-04-01',
         'status' => PayrollRun::STATUS_DRAFT,
@@ -253,7 +253,7 @@ it('forbids regular hr users from restricted payroll actions', function (string 
     'regenerate',
 ]);
 
-it('allows hr leadership roles to approve payroll runs', function (string $roleName) {
+it('allows hr roles to approve payroll runs', function (string $roleName) {
     $actor = createPayrollRunActionActorWithRole($roleName);
     $payrollRun = PayrollRun::query()->create([
         'payroll_month' => '2026-04-01',
@@ -274,12 +274,12 @@ it('allows hr leadership roles to approve payroll runs', function (string $roleN
         ->assertOk()
         ->assertJsonPath('status', PayrollRun::STATUS_APPROVED);
 })->with([
+    'hr',
     'hr_head',
     'hr_manager',
-    'admin',
 ]);
 
-it('allows hr leadership roles to cancel payroll runs', function (string $roleName) {
+it('allows hr roles to cancel payroll runs', function (string $roleName) {
     $actor = createPayrollRunActionActorWithRole($roleName);
     $payrollRun = PayrollRun::query()->create([
         'payroll_month' => '2026-04-01',
@@ -300,12 +300,12 @@ it('allows hr leadership roles to cancel payroll runs', function (string $roleNa
         ->assertOk()
         ->assertJsonPath('status', PayrollRun::STATUS_CANCELLED);
 })->with([
+    'hr',
     'hr_head',
     'hr_manager',
-    'admin',
 ]);
 
-it('allows hr leadership roles to regenerate payroll runs', function (string $roleName) {
+it('allows hr roles to regenerate payroll runs', function (string $roleName) {
     $actor = createPayrollRunActionActorWithRole($roleName);
     $employee = createPayrollRunActionEmployee([
         'employee_code' => 'EMP-ROLE-'.$roleName,
@@ -360,9 +360,9 @@ it('allows hr leadership roles to regenerate payroll runs', function (string $ro
         ->assertOk()
         ->assertJsonPath('status', PayrollRun::STATUS_DRAFT);
 })->with([
+    'hr',
     'hr_head',
     'hr_manager',
-    'admin',
 ]);
 
 /**

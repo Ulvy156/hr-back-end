@@ -55,32 +55,22 @@ it('seeds payroll permissions for the intended demo hr hierarchy', function () {
     $adminPermissions = Role::findByName('admin', 'api')->permissions()->orderBy('name')->pluck('name')->all();
 
     expect($hrPermissions)
+        ->toContain(PermissionName::LeaveTypeManage->value)
+        ->toContain(PermissionName::HolidayManage->value)
         ->toContain(PermissionName::PayrollRunView->value)
-        ->toContain(PermissionName::PayrollSalaryView->value)
-        ->toContain(PermissionName::PayrollExport->value)
-        ->not->toContain(PermissionName::PayrollSalaryManage->value)
-        ->not->toContain(PermissionName::PayrollRunGenerate->value)
-        ->not->toContain(PermissionName::PayrollRunRegenerate->value)
-        ->not->toContain(PermissionName::PayrollRunApprove->value)
-        ->not->toContain(PermissionName::PayrollRunMarkPaid->value)
-        ->not->toContain(PermissionName::PayrollRunCancel->value)
-        ->not->toContain(PermissionName::PayrollPayslipViewAny->value)
-        ->not->toContain(PermissionName::PayrollPayslipViewOwn->value);
-
-    expect($hrHeadPermissions)
         ->toContain(PermissionName::PayrollSalaryView->value)
         ->toContain(PermissionName::PayrollSalaryManage->value)
-        ->toContain(PermissionName::PayrollRunView->value)
+        ->toContain(PermissionName::PayrollExport->value)
         ->toContain(PermissionName::PayrollRunGenerate->value)
         ->toContain(PermissionName::PayrollRunRegenerate->value)
         ->toContain(PermissionName::PayrollRunApprove->value)
+        ->toContain(PermissionName::PayrollRunMarkPaid->value)
         ->toContain(PermissionName::PayrollRunCancel->value)
-        ->toContain(PermissionName::PayrollExport->value)
-        ->not->toContain(PermissionName::PayrollRunMarkPaid->value)
-        ->not->toContain(PermissionName::PayrollPayslipViewAny->value)
+        ->toContain(PermissionName::PayrollPayslipViewAny->value)
         ->not->toContain(PermissionName::PayrollPayslipViewOwn->value);
 
-    expect($hrManagerPermissions)->toBe($hrHeadPermissions);
+    expect($hrHeadPermissions)->toBe($hrPermissions)
+        ->and($hrManagerPermissions)->toBe($hrPermissions);
 
     expect($employeePermissions)
         ->toContain(PermissionName::PayrollPayslipViewOwn->value)
@@ -96,21 +86,21 @@ it('seeds payroll permissions for the intended demo hr hierarchy', function () {
         ->not->toContain(PermissionName::PayrollRunApprove->value)
         ->not->toContain(PermissionName::PayrollRunMarkPaid->value)
         ->not->toContain(PermissionName::PayrollRunCancel->value)
-        ->not->toContain(PermissionName::PayrollPayslipViewOwn->value)
+        ->toContain(PermissionName::PayrollPayslipViewOwn->value)
         ->not->toContain(PermissionName::PayrollPayslipViewAny->value)
         ->not->toContain(PermissionName::PayrollExport->value);
 
     expect($adminPermissions)
         ->toContain(PermissionName::PayrollSalaryView->value)
-        ->toContain(PermissionName::PayrollSalaryManage->value)
         ->toContain(PermissionName::PayrollRunView->value)
-        ->toContain(PermissionName::PayrollRunGenerate->value)
-        ->toContain(PermissionName::PayrollRunRegenerate->value)
-        ->toContain(PermissionName::PayrollRunApprove->value)
-        ->toContain(PermissionName::PayrollRunMarkPaid->value)
-        ->toContain(PermissionName::PayrollRunCancel->value)
         ->toContain(PermissionName::PayrollPayslipViewAny->value)
         ->toContain(PermissionName::PayrollExport->value)
+        ->not->toContain(PermissionName::PayrollSalaryManage->value)
+        ->not->toContain(PermissionName::PayrollRunGenerate->value)
+        ->not->toContain(PermissionName::PayrollRunRegenerate->value)
+        ->not->toContain(PermissionName::PayrollRunApprove->value)
+        ->not->toContain(PermissionName::PayrollRunMarkPaid->value)
+        ->not->toContain(PermissionName::PayrollRunCancel->value)
         ->not->toContain(PermissionName::PayrollPayslipViewOwn->value);
 
     $headOfHrUser = User::query()->where('email', 'helen.hr@example.com')->firstOrFail();
@@ -124,22 +114,22 @@ it('seeds payroll permissions for the intended demo hr hierarchy', function () {
         ->toContain(PermissionName::PayrollRunGenerate->value)
         ->toContain(PermissionName::PayrollRunRegenerate->value)
         ->toContain(PermissionName::PayrollRunApprove->value)
+        ->toContain(PermissionName::PayrollRunMarkPaid->value)
         ->toContain(PermissionName::PayrollRunCancel->value)
         ->toContain(PermissionName::PayrollExport->value)
-        ->not->toContain(PermissionName::PayrollRunMarkPaid->value)
-        ->not->toContain(PermissionName::PayrollPayslipViewAny->value)
+        ->toContain(PermissionName::PayrollPayslipViewAny->value)
         ->not->toContain(PermissionName::PayrollPayslipViewOwn->value);
 
     expect($regularHrUser->roles->pluck('name')->all())->toBe(['hr'])
         ->and($regularHrUser->getAllPermissions()->pluck('name')->all())
         ->toContain(PermissionName::PayrollRunView->value)
         ->toContain(PermissionName::PayrollSalaryView->value)
+        ->toContain(PermissionName::PayrollSalaryManage->value)
         ->toContain(PermissionName::PayrollExport->value)
-        ->not->toContain(PermissionName::PayrollSalaryManage->value)
-        ->not->toContain(PermissionName::PayrollRunGenerate->value)
-        ->not->toContain(PermissionName::PayrollRunRegenerate->value)
-        ->not->toContain(PermissionName::PayrollRunApprove->value)
-        ->not->toContain(PermissionName::PayrollRunCancel->value)
-        ->not->toContain(PermissionName::PayrollRunMarkPaid->value)
-        ->not->toContain(PermissionName::PayrollPayslipViewAny->value);
+        ->toContain(PermissionName::PayrollRunGenerate->value)
+        ->toContain(PermissionName::PayrollRunRegenerate->value)
+        ->toContain(PermissionName::PayrollRunApprove->value)
+        ->toContain(PermissionName::PayrollRunCancel->value)
+        ->toContain(PermissionName::PayrollRunMarkPaid->value)
+        ->toContain(PermissionName::PayrollPayslipViewAny->value);
 });

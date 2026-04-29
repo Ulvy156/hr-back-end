@@ -112,32 +112,22 @@ it('assigns payroll permissions to the intended default roles by hr level', func
     $managerPermissions = Role::findByName('manager', 'api')->permissions()->orderBy('name')->pluck('name')->all();
 
     expect($hrPermissions)
+        ->toContain(PermissionName::LeaveTypeManage->value)
+        ->toContain(PermissionName::HolidayManage->value)
         ->toContain(PermissionName::PayrollRunView->value)
-        ->toContain(PermissionName::PayrollSalaryView->value)
-        ->toContain(PermissionName::PayrollExport->value)
-        ->not->toContain(PermissionName::PayrollSalaryManage->value)
-        ->not->toContain(PermissionName::PayrollRunGenerate->value)
-        ->not->toContain(PermissionName::PayrollRunRegenerate->value)
-        ->not->toContain(PermissionName::PayrollRunApprove->value)
-        ->not->toContain(PermissionName::PayrollRunMarkPaid->value)
-        ->not->toContain(PermissionName::PayrollRunCancel->value)
-        ->not->toContain(PermissionName::PayrollPayslipViewAny->value)
-        ->not->toContain(PermissionName::PayrollPayslipViewOwn->value);
-
-    expect($hrHeadPermissions)
         ->toContain(PermissionName::PayrollSalaryView->value)
         ->toContain(PermissionName::PayrollSalaryManage->value)
-        ->toContain(PermissionName::PayrollRunView->value)
+        ->toContain(PermissionName::PayrollExport->value)
         ->toContain(PermissionName::PayrollRunGenerate->value)
         ->toContain(PermissionName::PayrollRunRegenerate->value)
         ->toContain(PermissionName::PayrollRunApprove->value)
+        ->toContain(PermissionName::PayrollRunMarkPaid->value)
         ->toContain(PermissionName::PayrollRunCancel->value)
-        ->toContain(PermissionName::PayrollExport->value)
-        ->not->toContain(PermissionName::PayrollRunMarkPaid->value)
-        ->not->toContain(PermissionName::PayrollPayslipViewAny->value)
+        ->toContain(PermissionName::PayrollPayslipViewAny->value)
         ->not->toContain(PermissionName::PayrollPayslipViewOwn->value);
 
-    expect($hrManagerPermissions)->toBe($hrHeadPermissions);
+    expect($hrHeadPermissions)->toBe($hrPermissions)
+        ->and($hrManagerPermissions)->toBe($hrPermissions);
 
     expect($employeePermissions)
         ->toContain(PermissionName::PayrollPayslipViewOwn->value)
@@ -153,20 +143,74 @@ it('assigns payroll permissions to the intended default roles by hr level', func
         ->not->toContain(PermissionName::PayrollRunApprove->value)
         ->not->toContain(PermissionName::PayrollRunMarkPaid->value)
         ->not->toContain(PermissionName::PayrollRunCancel->value)
-        ->not->toContain(PermissionName::PayrollPayslipViewOwn->value)
+        ->toContain(PermissionName::PayrollPayslipViewOwn->value)
         ->not->toContain(PermissionName::PayrollPayslipViewAny->value)
         ->not->toContain(PermissionName::PayrollExport->value);
 
     expect($adminPermissions)
         ->toContain(PermissionName::PayrollSalaryView->value)
-        ->toContain(PermissionName::PayrollSalaryManage->value)
         ->toContain(PermissionName::PayrollRunView->value)
-        ->toContain(PermissionName::PayrollRunGenerate->value)
-        ->toContain(PermissionName::PayrollRunRegenerate->value)
-        ->toContain(PermissionName::PayrollRunApprove->value)
-        ->toContain(PermissionName::PayrollRunMarkPaid->value)
-        ->toContain(PermissionName::PayrollRunCancel->value)
         ->toContain(PermissionName::PayrollPayslipViewAny->value)
         ->toContain(PermissionName::PayrollExport->value)
+        ->not->toContain(PermissionName::PayrollSalaryManage->value)
+        ->not->toContain(PermissionName::PayrollRunGenerate->value)
+        ->not->toContain(PermissionName::PayrollRunRegenerate->value)
+        ->not->toContain(PermissionName::PayrollRunApprove->value)
+        ->not->toContain(PermissionName::PayrollRunMarkPaid->value)
+        ->not->toContain(PermissionName::PayrollRunCancel->value)
         ->not->toContain(PermissionName::PayrollPayslipViewOwn->value);
+});
+
+it('assigns overtime permissions with admin as view-only', function () {
+    $this->seed(RoleAndPermissionSeeder::class);
+
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    $seededOvertimePermissions = Permission::query()
+        ->where('name', 'like', 'overtime.%')
+        ->orderBy('name')
+        ->pluck('name')
+        ->all();
+    $employeePermissions = Role::findByName('employee', 'api')->permissions()->pluck('name')->all();
+    $hrPermissions = Role::findByName('hr', 'api')->permissions()->pluck('name')->all();
+    $managerPermissions = Role::findByName('manager', 'api')->permissions()->pluck('name')->all();
+    $adminPermissions = Role::findByName('admin', 'api')->permissions()->pluck('name')->all();
+
+    expect($seededOvertimePermissions)->toBe([
+        PermissionName::OvertimeApproveManager->value,
+        PermissionName::OvertimeRequestCancel->value,
+        PermissionName::OvertimeRequestCreate->value,
+        PermissionName::OvertimeRequestViewAny->value,
+        PermissionName::OvertimeRequestViewAssigned->value,
+        PermissionName::OvertimeRequestViewSelf->value,
+    ]);
+
+    expect($employeePermissions)
+        ->toContain(PermissionName::OvertimeRequestViewSelf->value)
+        ->toContain(PermissionName::OvertimeRequestCreate->value)
+        ->toContain(PermissionName::OvertimeRequestCancel->value)
+        ->not->toContain(PermissionName::OvertimeApproveManager->value)
+        ->not->toContain(PermissionName::OvertimeRequestViewAny->value);
+
+    expect($hrPermissions)
+        ->toContain(PermissionName::OvertimeRequestViewAny->value)
+        ->toContain(PermissionName::OvertimeRequestViewSelf->value)
+        ->toContain(PermissionName::OvertimeRequestCreate->value)
+        ->toContain(PermissionName::OvertimeRequestCancel->value)
+        ->not->toContain(PermissionName::OvertimeApproveManager->value);
+
+    expect($managerPermissions)
+        ->toContain(PermissionName::OvertimeApproveManager->value)
+        ->toContain(PermissionName::OvertimeRequestViewAssigned->value)
+        ->toContain(PermissionName::OvertimeRequestCreate->value)
+        ->toContain(PermissionName::OvertimeRequestCancel->value)
+        ->toContain(PermissionName::OvertimeRequestViewSelf->value);
+
+    expect($adminPermissions)
+        ->toContain(PermissionName::OvertimeRequestViewAny->value)
+        ->not->toContain(PermissionName::OvertimeRequestCreate->value)
+        ->not->toContain(PermissionName::OvertimeRequestCancel->value)
+        ->not->toContain(PermissionName::OvertimeApproveManager->value)
+        ->not->toContain(PermissionName::OvertimeRequestViewAssigned->value)
+        ->not->toContain(PermissionName::OvertimeRequestViewSelf->value);
 });

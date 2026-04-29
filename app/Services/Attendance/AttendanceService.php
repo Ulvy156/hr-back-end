@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\PermissionName;
 use App\Services\AuditLogService;
+use App\Services\PublicHoliday\PublicHolidayService;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -19,7 +20,10 @@ use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 
 class AttendanceService
 {
-    public function __construct(private AuditLogService $auditLogService) {}
+    public function __construct(
+        private AuditLogService $auditLogService,
+        private PublicHolidayService $publicHolidayService,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $data
@@ -1389,12 +1393,9 @@ class AttendanceService
             ];
         }
 
-        $workedMinutes = max(
-            $this->wholeMinutesBetween($checkIn, $checkOut) - $this->breakMinutes($attendanceDate, $checkIn, $checkOut),
-            0,
-        );
-        $overtimeMinutes = $this->overtimeMinutes($attendanceDate, $checkOut);
-        $lateMinutes = $this->netLateMinutes($attendanceDate, $checkIn, $checkOut, $overtimeMinutes);
+        $workedMinutes = $this->workedMinutes($attendanceDate, $checkIn, $checkOut);
+        $overtimeMinutes = $this->overtimeMinutes($attendanceDate, $checkOut, $workedMinutes, $checkIn);
+        $lateMinutes = $this->netLateMinutes($attendanceDate, $checkIn, $checkOut, $overtimeMinutes, $workedMinutes);
         $earlyLeaveMinutes = $this->earlyLeaveMinutes($attendanceDate, $checkOut);
 
         return [
@@ -1542,9 +1543,15 @@ class AttendanceService
         CarbonInterface $checkIn,
         CarbonInterface $checkOut,
         ?int $overtimeMinutes = null,
+        ?int $workedMinutes = null,
     ): int {
         $lateMinutes = $this->lateMinutes($attendanceDate, $checkIn);
-        $overtimeCreditMinutes = $overtimeMinutes ?? $this->overtimeMinutes($attendanceDate, $checkOut);
+        $overtimeCreditMinutes = $overtimeMinutes ?? $this->overtimeMinutes(
+            $attendanceDate,
+            $checkOut,
+            $workedMinutes,
+            $checkIn,
+        );
 
         return max($lateMinutes - $overtimeCreditMinutes, 0);
     }
@@ -1556,11 +1563,36 @@ class AttendanceService
         return $checkOut->lt($end) ? $this->wholeMinutesBetween($checkOut, $end) : 0;
     }
 
-    private function overtimeMinutes(CarbonInterface $attendanceDate, CarbonInterface $checkOut): int
-    {
+    private function overtimeMinutes(
+        CarbonInterface $attendanceDate,
+        CarbonInterface $checkOut,
+        ?int $workedMinutes = null,
+        ?CarbonInterface $checkIn = null,
+    ): int {
+        if ($this->isPublicHoliday($attendanceDate) || $attendanceDate->isWeekend()) {
+            if ($workedMinutes !== null) {
+                return max($workedMinutes, 0);
+            }
+
+            if ($checkIn === null) {
+                return 0;
+            }
+
+            return $this->workedMinutes($attendanceDate, $checkIn, $checkOut);
+        }
+
         $end = $this->workEnd($attendanceDate);
 
         return $checkOut->gt($end) ? $this->wholeMinutesBetween($end, $checkOut) : 0;
+    }
+
+    private function isPublicHoliday(CarbonInterface $attendanceDate): bool
+    {
+        return in_array(
+            $attendanceDate->toDateString(),
+            $this->publicHolidayService->holidayDatesBetween($attendanceDate, $attendanceDate),
+            true,
+        );
     }
 
     private function workStart(CarbonInterface $attendanceDate): Carbon
@@ -1593,6 +1625,17 @@ class AttendanceService
         }
 
         return $this->wholeMinutesBetween($overlapStart, $overlapEnd);
+    }
+
+    private function workedMinutes(
+        CarbonInterface $attendanceDate,
+        CarbonInterface $checkIn,
+        CarbonInterface $checkOut,
+    ): int {
+        return max(
+            $this->wholeMinutesBetween($checkIn, $checkOut) - $this->breakMinutes($attendanceDate, $checkIn, $checkOut),
+            0,
+        );
     }
 
     private function wholeMinutesBetween(CarbonInterface $start, CarbonInterface $end): int

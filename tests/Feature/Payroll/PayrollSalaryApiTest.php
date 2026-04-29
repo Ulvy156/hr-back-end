@@ -323,6 +323,12 @@ it('updates an existing salary and keeps current position salary in sync', funct
 it('forbids users without payroll salary permissions', function () {
     $user = User::factory()->create();
     $employee = createPayrollSalaryEmployee();
+    $salary = EmployeeSalary::query()->create([
+        'employee_id' => $employee->id,
+        'amount' => '700.00',
+        'effective_date' => now()->subMonth()->startOfMonth()->toDateString(),
+        'end_date' => null,
+    ]);
 
     Passport::actingAs($user);
 
@@ -333,6 +339,36 @@ it('forbids users without payroll salary permissions', function () {
         'employee_id' => $employee->id,
         'amount' => 700,
         'effective_date' => now()->toDateString(),
+    ])->assertForbidden();
+
+    $this->patchJson("/api/payroll/salaries/{$salary->id}", [
+        'amount' => 750,
+    ])->assertForbidden();
+});
+
+it('allows payroll salary viewers to list salaries but forbids salary management actions', function () {
+    $actor = createPayrollSalaryActor([PermissionName::PayrollSalaryView]);
+    $employee = createPayrollSalaryEmployee();
+    $salary = EmployeeSalary::query()->create([
+        'employee_id' => $employee->id,
+        'amount' => '650.00',
+        'effective_date' => now()->subMonth()->startOfMonth()->toDateString(),
+        'end_date' => null,
+    ]);
+
+    Passport::actingAs($actor);
+
+    $this->getJson('/api/payroll/salaries')
+        ->assertOk();
+
+    $this->postJson('/api/payroll/salaries', [
+        'employee_id' => $employee->id,
+        'amount' => 700,
+        'effective_date' => now()->toDateString(),
+    ])->assertForbidden();
+
+    $this->patchJson("/api/payroll/salaries/{$salary->id}", [
+        'amount' => 725,
     ])->assertForbidden();
 });
 

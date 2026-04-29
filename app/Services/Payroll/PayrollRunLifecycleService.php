@@ -5,11 +5,14 @@ namespace App\Services\Payroll;
 use App\Models\Employee;
 use App\Models\PayrollRun;
 use App\Models\User;
+use App\PermissionName;
 use App\Services\AuditLogService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
+use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 
 class PayrollRunLifecycleService
 {
@@ -20,6 +23,8 @@ class PayrollRunLifecycleService
 
     public function approve(PayrollRun $payrollRun, ?User $actor = null): PayrollRun
     {
+        $actor = $this->ensureApprover($actor);
+
         return DB::transaction(function () use ($actor, $payrollRun): PayrollRun {
             /** @var PayrollRun $lockedPayrollRun */
             $lockedPayrollRun = PayrollRun::query()
@@ -57,6 +62,8 @@ class PayrollRunLifecycleService
 
     public function markPaid(PayrollRun $payrollRun, ?User $actor = null): PayrollRun
     {
+        $actor = $this->ensureMarkPaidOperator($actor);
+
         return DB::transaction(function () use ($actor, $payrollRun): PayrollRun {
             /** @var PayrollRun $lockedPayrollRun */
             $lockedPayrollRun = PayrollRun::query()
@@ -94,6 +101,8 @@ class PayrollRunLifecycleService
 
     public function cancel(PayrollRun $payrollRun, ?User $actor = null): PayrollRun
     {
+        $actor = $this->ensureCanceller($actor);
+
         return DB::transaction(function () use ($actor, $payrollRun): PayrollRun {
             /** @var PayrollRun $lockedPayrollRun */
             $lockedPayrollRun = PayrollRun::query()
@@ -137,8 +146,9 @@ class PayrollRunLifecycleService
      *     errors: array<int, array{employee_id: int, employee_code: string|null, employee_name: string, reason: string}>
      * }
      */
-    public function prepareRegeneration(PayrollRun $payrollRun): array
+    public function prepareRegeneration(PayrollRun $payrollRun, ?User $actor = null): array
     {
+        $this->ensureRegenerator($actor);
         $this->assertRegeneratableStatus($payrollRun);
 
         return $this->payrollRunGenerationService->prepareGeneration(
@@ -157,6 +167,8 @@ class PayrollRunLifecycleService
      */
     public function regeneratePrepared(PayrollRun $payrollRun, array $preparedGeneration, ?User $actor = null): PayrollRun
     {
+        $actor = $this->ensureRegenerator($actor);
+
         return DB::transaction(function () use ($actor, $payrollRun, $preparedGeneration): PayrollRun {
             /** @var PayrollRun $lockedPayrollRun */
             $lockedPayrollRun = PayrollRun::query()
@@ -205,5 +217,45 @@ class PayrollRunLifecycleService
         throw ValidationException::withMessages([
             'status' => ['Only draft payroll runs can be regenerated.'],
         ]);
+    }
+
+    private function ensureApprover(?User $authenticatedUser): User
+    {
+        return $this->ensurePermission($authenticatedUser, PermissionName::PayrollRunApprove);
+    }
+
+    private function ensureMarkPaidOperator(?User $authenticatedUser): User
+    {
+        return $this->ensurePermission($authenticatedUser, PermissionName::PayrollRunMarkPaid);
+    }
+
+    private function ensureCanceller(?User $authenticatedUser): User
+    {
+        return $this->ensurePermission($authenticatedUser, PermissionName::PayrollRunCancel);
+    }
+
+    private function ensureRegenerator(?User $authenticatedUser): User
+    {
+        return $this->ensurePermission($authenticatedUser, PermissionName::PayrollRunRegenerate);
+    }
+
+    private function ensurePermission(?User $authenticatedUser, PermissionName $permissionName): User
+    {
+        $authenticatedUser = $this->ensureAuthenticated($authenticatedUser);
+
+        if (! $authenticatedUser->can($permissionName->value)) {
+            throw new HttpException(403, 'Forbidden.');
+        }
+
+        return $authenticatedUser;
+    }
+
+    private function ensureAuthenticated(?User $authenticatedUser): User
+    {
+        if ($authenticatedUser === null) {
+            throw new UnauthorizedHttpException('Bearer', 'Unauthenticated.');
+        }
+
+        return $authenticatedUser;
     }
 }

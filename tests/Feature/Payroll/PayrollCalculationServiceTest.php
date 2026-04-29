@@ -1,17 +1,20 @@
 <?php
 
-use App\Models\Attendance;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeDependent;
 use App\Models\EmployeeSalary;
 use App\Models\LeaveRequest;
+use App\Models\OvertimeRequest;
 use App\Models\PayrollTaxRule;
 use App\Models\Position;
 use App\Models\PublicHoliday;
 use App\Services\Leave\LeaveRequestDurationType;
 use App\Services\Leave\LeaveRequestHalfDaySession;
 use App\Services\Leave\LeaveRequestStatus;
+use App\Services\Overtime\OvertimeApprovalStage;
+use App\Services\Overtime\OvertimeRequestStatus;
+use App\Services\Overtime\OvertimeType;
 use App\Services\Payroll\PayrollCalculationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -93,23 +96,38 @@ it('calculates overtime using normal weekend and public holiday multipliers', fu
         'country_code' => 'KH',
     ]);
 
-    Attendance::query()->create([
+    OvertimeRequest::query()->create([
         'employee_id' => $employee->id,
-        'attendance_date' => '2026-04-14',
-        'status' => 'present',
-        'overtime_minutes' => 120,
+        'overtime_date' => '2026-04-14',
+        'start_time' => '18:00:00',
+        'end_time' => '20:00:00',
+        'reason' => 'Weekday overtime.',
+        'status' => OvertimeRequestStatus::Approved,
+        'approval_stage' => OvertimeApprovalStage::Completed,
+        'minutes' => 120,
+        'overtime_type' => OvertimeType::Normal,
     ]);
-    Attendance::query()->create([
+    OvertimeRequest::query()->create([
         'employee_id' => $employee->id,
-        'attendance_date' => '2026-04-18',
-        'status' => 'present',
-        'overtime_minutes' => 60,
+        'overtime_date' => '2026-04-18',
+        'start_time' => '09:00:00',
+        'end_time' => '10:00:00',
+        'reason' => 'Weekend overtime.',
+        'status' => OvertimeRequestStatus::Approved,
+        'approval_stage' => OvertimeApprovalStage::Completed,
+        'minutes' => 60,
+        'overtime_type' => OvertimeType::Weekend,
     ]);
-    Attendance::query()->create([
+    OvertimeRequest::query()->create([
         'employee_id' => $employee->id,
-        'attendance_date' => '2026-04-15',
-        'status' => 'present',
-        'overtime_minutes' => 30,
+        'overtime_date' => '2026-04-15',
+        'start_time' => '18:00:00',
+        'end_time' => '18:30:00',
+        'reason' => 'Holiday overtime.',
+        'status' => OvertimeRequestStatus::Approved,
+        'approval_stage' => OvertimeApprovalStage::Completed,
+        'minutes' => 30,
+        'overtime_type' => OvertimeType::Holiday,
     ]);
 
     $result = app(PayrollCalculationService::class)->calculateForEmployee($employee, '2026-04');
@@ -123,6 +141,69 @@ it('calculates overtime using normal weekend and public holiday multipliers', fu
         ->and($result['overtime_pay'])->toBe(60.0)
         ->and($result['tax_amount'])->toBe(0.0)
         ->and($result['net_salary'])->toBe(1740.0);
+});
+
+it('ignores pending rejected and cancelled overtime requests during payroll calculation', function () {
+    $employee = createPayrollCalculationEmployee();
+    EmployeeSalary::query()->create([
+        'employee_id' => $employee->id,
+        'amount' => '1680.00',
+        'effective_date' => '2026-04-01',
+        'end_date' => null,
+    ]);
+
+    OvertimeRequest::query()->create([
+        'employee_id' => $employee->id,
+        'overtime_date' => '2026-04-14',
+        'start_time' => '18:00:00',
+        'end_time' => '20:00:00',
+        'reason' => 'Approved overtime.',
+        'status' => OvertimeRequestStatus::Approved,
+        'approval_stage' => OvertimeApprovalStage::Completed,
+        'minutes' => 120,
+        'overtime_type' => OvertimeType::Normal,
+    ]);
+    OvertimeRequest::query()->create([
+        'employee_id' => $employee->id,
+        'overtime_date' => '2026-04-15',
+        'start_time' => '18:00:00',
+        'end_time' => '20:00:00',
+        'reason' => 'Pending overtime.',
+        'status' => OvertimeRequestStatus::Pending,
+        'approval_stage' => OvertimeApprovalStage::ManagerReview,
+        'minutes' => 120,
+        'overtime_type' => OvertimeType::Holiday,
+    ]);
+    OvertimeRequest::query()->create([
+        'employee_id' => $employee->id,
+        'overtime_date' => '2026-04-16',
+        'start_time' => '18:00:00',
+        'end_time' => '20:00:00',
+        'reason' => 'Rejected overtime.',
+        'status' => OvertimeRequestStatus::Rejected,
+        'approval_stage' => OvertimeApprovalStage::Completed,
+        'minutes' => 120,
+        'overtime_type' => OvertimeType::Normal,
+    ]);
+    OvertimeRequest::query()->create([
+        'employee_id' => $employee->id,
+        'overtime_date' => '2026-04-19',
+        'start_time' => '09:00:00',
+        'end_time' => '11:00:00',
+        'reason' => 'Cancelled overtime.',
+        'status' => OvertimeRequestStatus::Cancelled,
+        'approval_stage' => OvertimeApprovalStage::Completed,
+        'minutes' => 120,
+        'overtime_type' => OvertimeType::Weekend,
+    ]);
+
+    $result = app(PayrollCalculationService::class)->calculateForEmployee($employee, '2026-04');
+
+    expect($result['overtime_normal_hours'])->toBe(2.0)
+        ->and($result['overtime_weekend_hours'])->toBe(0.0)
+        ->and($result['overtime_holiday_hours'])->toBe(0.0)
+        ->and($result['overtime_pay'])->toBe(28.64)
+        ->and($result['net_salary'])->toBe(1708.64);
 });
 
 it('recomputes approved unpaid leave units using payroll working-day calendar', function () {

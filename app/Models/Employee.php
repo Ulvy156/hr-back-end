@@ -201,12 +201,17 @@ class Employee extends Model
             ->orderByDesc('id');
     }
 
-    public function employeeDependents(): HasMany
+    public function dependents(): HasMany
     {
         return $this->hasMany(EmployeeDependent::class)
             ->orderByDesc('is_active')
             ->orderBy('relationship')
             ->orderBy('name');
+    }
+
+    public function employeeDependents(): HasMany
+    {
+        return $this->dependents();
     }
 
     public function attendances(): HasMany
@@ -241,14 +246,29 @@ class Employee extends Model
         return $this->hasMany(LeaveRequest::class);
     }
 
+    public function overtimeRequests(): HasMany
+    {
+        return $this->hasMany(OvertimeRequest::class);
+    }
+
     public function managerApprovedLeaveRequests(): HasMany
     {
         return $this->hasMany(LeaveRequest::class, 'manager_approved_by');
     }
 
+    public function managerApprovedOvertimeRequests(): HasMany
+    {
+        return $this->hasMany(OvertimeRequest::class, 'manager_approved_by');
+    }
+
     public function hrApprovedLeaveRequests(): HasMany
     {
         return $this->hasMany(LeaveRequest::class, 'hr_approved_by');
+    }
+
+    public function rejectedOvertimeRequests(): HasMany
+    {
+        return $this->hasMany(OvertimeRequest::class, 'rejected_by');
     }
 
     public function payrolls(): HasMany
